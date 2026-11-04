@@ -1,0 +1,55 @@
+{
+  "idAvviso": "test-maeci-88518",
+  "codiceScheda": "P2_17",
+  "tipologia": "BANDI",
+  "tipo": "avviso",
+  "attivo": true,
+  "templates": [
+    {
+      "template": {
+        "metadata": {
+          "link_eform_ted": null,
+          "titolo": null,
+          "descrizione": "Sostituzione infissi Residenza del Capo Missione - Ambasciata d'Italia al Cairo"
+        },
+        "sections": [
+          {
+            "name": "SEZ. A - Committente",
+            "fields": {
+              "soggetti_sa": [
+                {
+                  "codice_fiscale": "80213330584",
+                  "denominazione_amministrazione": "MINISTERO DEGLI AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE"
+                }
+              ]
+            }
+          },
+          {
+            "name": "SEZ. B - Dati Generali",
+            "fields": {
+              "documenti_di_gara_link": "https://maeci.traspare.com/announcements/88518",
+              "tipo_procedura_aggiudicazione": "Negoziata"
+            }
+          },
+          {
+            "name": "SEZ. C - Oggetto",
+            "items": [
+              {
+                "tipo_oggetto": "lotto",
+                "cig": "BD200705DE",
+                "natura_principale": "Lavori",
+                "descrizione": "Lavori di sostituzione e adeguamento degli infissi e dei sistemi di protezione delle aperture presso la Residenza del Capo Missione",
+                "valore_complessivo_stimato": 167924.0,
+                "documenti_di_gara_link": "https://maeci.traspare.com/announcements/88518",
+                "termine_ricezione": "2026-10-12T18:00:00+02:00"
+              }
+            ]
+          }
+        ]
+      },
+      "lingua": "it"
+    }
+  ],
+  "oscurato": false,
+  "stato": "NON_VERIFICATO"
+}

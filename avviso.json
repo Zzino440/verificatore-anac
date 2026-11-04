@@ -1,0 +1,42 @@
+
+{
+  "idAvviso": "test-maeci-37394",
+  "codiceScheda": "P2_17",
+  "tipologia": "BANDI",
+  "tipo": "avviso",
+  "attivo": true,
+  "templates": [{
+    "template": {
+      "metadata": {"link_eform_ted": null, "titolo": null, "descrizione": "Corsi di lingua francese, inglese, spagnolo e tedesco per il personale MAECI"},
+      "sections": [
+        {"name": "SEZ. A - Committente", "fields": {"soggetti_sa": [{"codice_fiscale": "80213330584", "denominazione_amministrazione": "MINISTERO DEGLI AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE"}]}},
+        {"name": "SEZ. B - Dati Generali", "fields": {"documenti_di_gara_link": "https://maeci.traspare.com/announcements/37394", "tipo_procedura_aggiudicazione": "Negoziata"}},
+        {"name": "SEZ. C - Oggetto", "items": [
+          {"tipo_oggetto": "lotto", "cig": "B6452211D6", "natura_principale": "Servizi", 
+           "descrizione": "Affidamento di corsi lingua francese per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale",
+           "valore_complessivo_stimato": 140000.00,
+           "documenti_di_gara_link": "https://maeci.traspare.com/announcements/37394",
+           "termine_ricezione": "2025-06-17T23:59:00+02:00"},
+          {"tipo_oggetto": "lto", "cig": "B6452222A9", "natura_principale": "Servizi",
+           "descrizione": "Affidamento di corsi lingua inglese per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale",
+           "valore_complessivo_stimato": 124000.00,
+           "documenti_di_gara_link": "https://maeci.traspare.com/announcements/37394",
+           "termine_ricezione": "2025-06-17T23:59:00+02:00"},
+          {"tipo_oggetto": "lotto", "cig": "B64522337C", "natura_principale": "Servizi",
+           "descrizione": "Affidamento di corsi lingua spagnola per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale",
+           "valore_complessivo_stimato": 170000.00,
+           "documenti_di_gara_link": "https://maeci.traspare.com/announcements/37394",
+           "termine_ricezione": "2025-06-17T23:59:00+02:00"},
+          {"tipo_oggetto": "lotto", "cig": "B64522444F", "natura_principale": "Servizi",
+           "descrizione": "Affidamento di corsi lingua tedesca per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale",
+           "valore_complessivo_stimato": 59000.00,
+           "documenti_di_gara_link": "https://maeci.traspare.com/announcements/37394",
+           "termine_ricezione": "2025-06-17T23:59:00+02:00"}
+        ]}
+      ]}
+    },
+    "lingua": "it"
+  }],
+  "oscurato": false,
+  "stato": "NON_VERIFICATO"
+}

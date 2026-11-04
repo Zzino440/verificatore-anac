@@ -1,0 +1,166 @@
+{
+  "idAvviso": "test-maeci-37394",
+  "esito": "dubbio",
+  "lotti": [
+    {
+      "cig": "B6452211D6",
+      "url": "https://maeci.traspare.com/announcements/37394",
+      "url_finale": "https://maeci.traspare.com/announcements/37394",
+      "fonte": "script",
+      "campi": {
+        "cig": {
+          "atteso": "B6452211D6",
+          "trovato": "B6452211D6",
+          "ok": true,
+          "estratto": "...ne Importo 1 Gara aggiudicata a: LANGUAGE ACADEMY SOC.COOP. B6452211D6 Oggetto: Affidamento di corsi lingua francese per il person..."
+        },
+        "importo": {
+          "atteso": 140000.0,
+          "trovato": "140.000,00",
+          "ok": true,
+          "estratto": "...aggiudicazione: Offerta Economica Più Vantaggiosa Totale: € 140.000,00 2 Gara aggiudicata a: INTERNATIONAL SCHOOL OF LANGUAGES s.r..."
+        },
+        "scadenza": {
+          "atteso": "2025-06-17T23:59:00+02:00",
+          "trovato": "17/06/2025 23:59",
+          "ok": true,
+          "estratto": "...025 09:23 - Europe/Rome Data di scadenza ricezione offerte: 17/06/2025 23:59 - Europe/Rome Caricamento busta amministrativa, tecnica ed ..."
+        },
+        "oggetto": {
+          "atteso": "Affidamento di corsi lingua francese per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale",
+          "trovato": "copertura parole 100%",
+          "ok": true,
+          "estratto": "...giudicata a: LANGUAGE ACADEMY SOC.COOP. B6452211D6 Oggetto: Affidamento di corsi lingua francese per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale Criterio di aggiudicazione: Offerta Economica Più Vantaggio..."
+        }
+      },
+      "esito": "verificato",
+      "motivo": "CIG, importo, scadenza e oggetto trovati",
+      "pagina": {
+        "http": 200,
+        "caratteri": 17735,
+        "titolo": "Ministero degli Affari Esteri e della Cooperazione Internazionale - Bandi di Gara",
+        "scaricata_il": "2026-11-04T11:45:10"
+      }
+    },
+    {
+      "cig": "B6452222A9",
+      "url": "https://maeci.traspare.com/announcements/37394",
+      "url_finale": "https://maeci.traspare.com/announcements/37394",
+      "fonte": "script",
+      "campi": {
+        "cig": {
+          "atteso": "B6452222A9",
+          "trovato": "B6452222A9",
+          "ok": true,
+          "estratto": "...ara aggiudicata a: INTERNATIONAL SCHOOL OF LANGUAGES s.r.l. B6452222A9 Oggetto: Affidamento di corsi lingua inglese per il persona..."
+        },
+        "importo": {
+          "atteso": 124000.0,
+          "trovato": "124.000,00",
+          "ok": true,
+          "estratto": "...aggiudicazione: Offerta Economica Più Vantaggiosa Totale: € 124.000,00 3 Non Aggiudicata B64522337C Oggetto: Affidamento di corsi ..."
+        },
+        "scadenza": {
+          "atteso": "2025-06-17T23:59:00+02:00",
+          "trovato": "17/06/2025 23:59",
+          "ok": true,
+          "estratto": "...025 09:23 - Europe/Rome Data di scadenza ricezione offerte: 17/06/2025 23:59 - Europe/Rome Caricamento busta amministrativa, tecnica ed ..."
+        },
+        "oggetto": {
+          "atteso": "Affidamento di corsi lingua inglese per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale",
+          "trovato": "copertura parole 100%",
+          "ok": true,
+          "estratto": "...NTERNATIONAL SCHOOL OF LANGUAGES s.r.l. B6452222A9 Oggetto: Affidamento di corsi lingua inglese per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale Criterio di aggiudicazione: Offerta Economica Più Vantaggio..."
+        }
+      },
+      "esito": "verificato",
+      "motivo": "CIG, importo, scadenza e oggetto trovati",
+      "pagina": {
+        "http": 200,
+        "caratteri": 17735,
+        "titolo": "Ministero degli Affari Esteri e della Cooperazione Internazionale - Bandi di Gara",
+        "scaricata_il": "2026-11-04T11:45:10"
+      }
+    },
+    {
+      "cig": "B64522337C",
+      "url": "https://maeci.traspare.com/announcements/37394",
+      "url_finale": "https://maeci.traspare.com/announcements/37394",
+      "fonte": "script",
+      "campi": {
+        "cig": {
+          "atteso": "B64522337C",
+          "trovato": "B64522337C",
+          "ok": true,
+          "estratto": "...mica Più Vantaggiosa Totale: € 124.000,00 3 Non Aggiudicata B64522337C Oggetto: Affidamento di corsi lingua spagnola per il person..."
+        },
+        "importo": {
+          "atteso": 170000.0,
+          "trovato": "170.000,00",
+          "ok": true,
+          "estratto": "...aggiudicazione: Offerta Economica Più Vantaggiosa Totale: € 170.000,00 4 Non Aggiudicata B64522444F Oggetto: Affidamento di corsi ..."
+        },
+        "scadenza": {
+          "atteso": "2025-06-17T23:59:00+02:00",
+          "trovato": "17/06/2025 23:59",
+          "ok": true,
+          "estratto": "...025 09:23 - Europe/Rome Data di scadenza ricezione offerte: 17/06/2025 23:59 - Europe/Rome Caricamento busta amministrativa, tecnica ed ..."
+        },
+        "oggetto": {
+          "atteso": "Affidamento di corsi lingua spagnola per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale",
+          "trovato": "copertura parole 100%",
+          "ok": true,
+          "estratto": "... Totale: € 124.000,00 3 Non Aggiudicata B64522337C Oggetto: Affidamento di corsi lingua spagnola per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale Criterio di aggiudicazione: Offerta Economica Più Vantaggio..."
+        }
+      },
+      "esito": "verificato",
+      "motivo": "CIG, importo, scadenza e oggetto trovati",
+      "pagina": {
+        "http": 200,
+        "caratteri": 17735,
+        "titolo": "Ministero degli Affari Esteri e della Cooperazione Internazionale - Bandi di Gara",
+        "scaricata_il": "2026-11-04T11:45:10"
+      }
+    },
+    {
+      "cig": "B64522444F",
+      "url": "https://maeci.traspare.com/announcements/37394",
+      "url_finale": "https://maeci.traspare.com/announcements/37394",
+      "fonte": "script",
+      "campi": {
+        "cig": {
+          "atteso": "B64522444F",
+          "trovato": "B64522444F",
+          "ok": true,
+          "estratto": "...mica Più Vantaggiosa Totale: € 170.000,00 4 Non Aggiudicata B64522444F Oggetto: Affidamento di corsi lingua tedesca per il persona..."
+        },
+        "importo": {
+          "atteso": 59000.0,
+          "trovato": null,
+          "ok": false,
+          "estratto": null
+        },
+        "scadenza": {
+          "atteso": "2025-06-17T23:59:00+02:00",
+          "trovato": "17/06/2025 23:59",
+          "ok": true,
+          "estratto": "...025 09:23 - Europe/Rome Data di scadenza ricezione offerte: 17/06/2025 23:59 - Europe/Rome Caricamento busta amministrativa, tecnica ed ..."
+        },
+        "oggetto": {
+          "atteso": "Affidamento di corsi lingua tedesca per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale",
+          "trovato": "copertura parole 100%",
+          "ok": true,
+          "estratto": "... Totale: € 170.000,00 4 Non Aggiudicata B64522444F Oggetto: Affidamento di corsi lingua tedesca per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale Criterio di aggiudicazione: Offerta Economica Più Vantaggio..."
+        }
+      },
+      "esito": "dubbio",
+      "motivo": "non coincide o manca: importo",
+      "pagina": {
+        "http": 200,
+        "caratteri": 17735,
+        "titolo": "Ministero degli Affari Esteri e della Cooperazione Internazionale - Bandi di Gara",
+        "scaricata_il": "2026-11-04T11:45:10"
+      }
+    }
+  ]
+}

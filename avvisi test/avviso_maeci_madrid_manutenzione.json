@@ -1,0 +1,55 @@
+{
+  "idAvviso": "test-maeci-87326",
+  "codiceScheda": "P2_17",
+  "tipologia": "BANDI",
+  "tipo": "avviso",
+  "attivo": true,
+  "templates": [
+    {
+      "template": {
+        "metadata": {
+          "link_eform_ted": null,
+          "titolo": null,
+          "descrizione": "Manutenzione impianti Complesso dell'Ambasciata d'Italia a Madrid 2027-2029"
+        },
+        "sections": [
+          {
+            "name": "SEZ. A - Committente",
+            "fields": {
+              "soggetti_sa": [
+                {
+                  "codice_fiscale": "80213330584",
+                  "denominazione_amministrazione": "MINISTERO DEGLI AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE"
+                }
+              ]
+            }
+          },
+          {
+            "name": "SEZ. B - Dati Generali",
+            "fields": {
+              "documenti_di_gara_link": "https://maeci.traspare.com/announcements/87326",
+              "tipo_procedura_aggiudicazione": "Aperta"
+            }
+          },
+          {
+            "name": "SEZ. C - Oggetto",
+            "items": [
+              {
+                "tipo_oggetto": "lotto",
+                "cig": "BD004045BD",
+                "natura_principale": "Servizi",
+                "descrizione": "Servizio triennale di manutenzione ordinaria, correttiva e minuta manutenzione degli impianti del Complesso dell'Ambasciata d'Italia a Madrid",
+                "valore_complessivo_stimato": 121917.01,
+                "documenti_di_gara_link": "https://maeci.traspare.com/announcements/87326",
+                "termine_ricezione": "2026-10-16T14:00:00+02:00"
+              }
+            ]
+          }
+        ]
+      },
+      "lingua": "it"
+    }
+  ],
+  "oscurato": false,
+  "stato": "NON_VERIFICATO"
+}

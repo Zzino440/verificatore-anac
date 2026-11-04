@@ -1,0 +1,82 @@
+
+{
+  "idAvviso": "3026b8e7-8538-43a1-bd6b-b73b37bb8288",
+  "idAppalto": "c19407d2-4c32-4151-ac76-82fe7da50175",
+  "codiceScheda": "P2_17",
+  "tipologia": "BANDI",
+  "dataScadenza": {
+    "$date": "2026-11-16T11:00:00.000Z"
+  },
+  "dataPubblicazione": {
+    "$date": "2026-10-14T06:00:00.545Z"
+  },
+  "dataPCP": {
+    "$date": "2026-10-13T17:07:57.000Z"
+  },
+  "dataCreazione": {
+    "$date": "2026-10-13T15:07:57.546Z"
+  },
+  "tipo": "avviso",
+  "attivo": true,
+  "templates": [{
+    "template": {
+      "metadata": {
+        "link_eform_ted": null,
+        "titolo": null,
+        "descrizione": "servizio di sorveglianza notturna e diurna non armata ambasciata d'Italia Buenos Aires"
+      },
+      "sections": [
+        {
+          "name": "SEZ. A - Committente",
+          "fields": {
+            "soggetti_sa": [
+              {
+                "codice_fiscale": "80213330584",
+                "denominazione_amministrazione": "MINISTERO DEGLI AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE"
+              }
+            ]
+          }
+        },
+        {
+          "name": "SEZ. B - Dati Generali",
+          "fields": {
+            "documenti_di_gara_link": "https://maeci.traspare.com/announcements/90142",
+            "accordo_quadro": "Nulla",
+            "sistema_dinamico_acquisizione": "Nessun sistema dinamico di acquisizione",
+            "tipo_procedura_aggiudicazione": "Aperta",
+            "asta_elettronica": "false"
+          }
+        },
+        {
+          "name": "SEZ. C - Oggetto",
+          "items": [
+            {
+              "tipo_oggetto": "lotto",
+              "cig": "BD4F2406B3",
+              "natura_principale": "Servizi",
+              "descrizione": "Servizio di sorveglianza non armata diurna e notturna compound edifici della Residenza ed Ambasciata d'Italia Buenos Aires",
+              "cpv": "Servizi di sorveglianza",
+              "valore_complessivo_stimato": 213660.11,
+              "documenti_di_gara_link": "https://maeci.traspare.com/announcements/90142",
+              "luogo_nuts": "Roma",
+              "luogo_istat": "ROMA",
+              "asta_elettronica": "false",
+              "termine_ricezione": "2026-11-16T12:00:00+01:00",
+              "accordo_quadro": "Nulla",
+              "sistema_dinamico_acquisizione": "Nessun sistema dinamico di acquisizione",
+              "categorie": [
+                {
+                  "codice": "FS",
+                  "descrizione": "FORNITURA DI SERVIZI"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "lingua": "it"
+  }],
+  "oscurato": false,
+  "stato": "NON_VERIFICATO"
+}

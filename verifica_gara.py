@@ -1,13 +1,11 @@
 """Verifica che la pagina del link di gara riporti CIG, importo, scadenza e oggetto
 di ogni lotto di un avviso ANAC. Solo libreria standard.
 
-Si usa come modulo: controllo_link_gara (installato da installa.py, flusso skill)
-oppure verifica_gara (copia nella cartella del progetto, flusso system prompt).
-Uso dal tool python (nella cartella di lavoro), con <modulo> uno dei due:
-  <modulo>.esegui("avviso.json", versione="N")
-  <modulo>.esegui("avviso.json", versione="N", lotto=CIG, cig=.., importo=.., scadenza=.., oggetto=..)
-  <modulo>.esegui("avviso.json", versione="N", cigassente=CIG)
-  <modulo>.esegui("avviso.json", versione="N", nonraggiungibile=CIG)
+Uso dal tool python (nella cartella di lavoro), come da prompt-di-sistema.md:
+  verifica_gara.esegui("avviso.json", versione="N")
+  verifica_gara.esegui("avviso.json", versione="N", lotto=CIG, cig=.., importo=.., scadenza=.., oggetto=..)
+  verifica_gara.esegui("avviso.json", versione="N", cigassente=CIG)
+  verifica_gara.esegui("avviso.json", versione="N", nonraggiungibile=CIG)
 Da riga di comando: python verifica.py avviso.json [--lotto CIG ...] [--cigassente CIG] [--nonraggiungibile CIG]
 Ogni verifica va in esiti/AAAA-MM-GG/NNN_HH-MM-SS_<idAvviso>/ (avviso.json + esito.json),
 con esiti/AAAA-MM-GG/riepilogo.md che elenca le verifiche del giorno.
@@ -28,7 +26,7 @@ from html.parser import HTMLParser
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-VERSIONE = "7"  # deve coincidere con quella scritta nelle istruzioni (SKILL.md e prompt-di-sistema.md)
+VERSIONE = "7"  # deve coincidere con quella scritta in prompt-di-sistema.md
 CARTELLA_ESITI = "esiti"
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -477,15 +475,12 @@ def esegui(avviso="avviso.json", versione=None, lotto=None, cig="", importo="", 
     """Punto di ingresso per il tool python:
     import <modulo>; <modulo>.esegui("avviso.json", versione="...")"""
     if versione is not None and str(versione) != VERSIONE:
-        skill = __name__ != "verifica_gara"
         if str(versione).isdigit() and int(versione) < int(VERSIONE):
             vecchio = "le istruzioni sono vecchie"
-            rimedio = ("aggiornare SKILL.md" if skill else
-                       "reincollare prompt-di-sistema.md nel System prompt e aprire una nuova chat nel progetto")
+            rimedio = "reincollare prompt-di-sistema.md nel System prompt e aprire una nuova chat nel progetto"
         else:
             vecchio = f"il modulo {__name__} e' vecchio"
-            rimedio = ("rilanciare installa.py della skill" if skill else
-                       "ricopiare verifica_gara.py nella cartella del progetto")
+            rimedio = "ricopiare verifica_gara.py nella cartella del progetto"
         print(f"ERRORE di versione: le istruzioni chiedono la versione {versione}, il modulo {__name__} "
               f"e' la {VERSIONE}, quindi {vecchio}. Di' all'utente di {rimedio}.")
         return

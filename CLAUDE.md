@@ -9,33 +9,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Vincoli: niente AI esterna, container senza GPU, modello locale piccolo che interviene il meno possibile. La logica deterministica sta nello script; il modello lo chiama e riporta l'output.
 - Il documento di contesto descrive anche la skill `verifica-automatica` (v0.3, tre step). È un lavoro precedente e separato: il flusso attivo è quello qui sotto.
 
-## Due flussi paralleli, stesso script
+## Flusso
 
-Il modello gira in **Unsloth Studio** (tool `python` e `web_search`). Lo stesso processo è disponibile in due forme che **vanno tenute sempre allineate**: ogni modifica alla logica o alle istruzioni si applica a entrambe, senza che l'utente debba ricordarlo.
+Il modello gira in **Unsloth Studio** (tool `python` e `web_search`):
+- istruzioni: `prompt-di-sistema.md`, incollato nel System prompt;
+- script: `verifica_gara.py` in questa cartella, che è la fonte unica del codice e si modifica direttamente;
+- nel modello: `import verifica_gara`, con la chat **dentro il progetto** Unsloth che ha questa cartella.
 
-| | Flusso skill | Flusso system prompt |
-|---|---|---|
-| Istruzioni | `C:\Users\Zzino\.claude\skills\controllo-link-gara\SKILL.md` | `prompt-di-sistema.md` (in questa cartella) |
-| Script | modulo `controllo_link_gara` nel `site-packages` di Unsloth, installato da `installa.py` | `verifica_gara.py` in questa cartella |
-| Import nel modello | `import controllo_link_gara` | `import verifica_gara` |
-| Uso in Unsloth | skill abilitata | prompt incollato nel System prompt, chat **dentro il progetto** con questa cartella, skill disattivata |
-
-**Fonte unica del codice:** `C:\Users\Zzino\.claude\skills\controllo-link-gara\scripts\verifica.py`. Non modificare `verifica_gara.py` direttamente: è una copia. I due file di istruzioni hanno gli stessi passi (1 verifica, 2 ripiego web, 3 risposta). Cambiano solo il nome del modulo, il messaggio per modulo mancante e l'introduzione: il prompt non ha frontmatter e si apre con "Sei il verificatore…". L'output dello script non nomina mai la skill: il messaggio di errore di versione si adatta al modulo in uso (`__name__`) e dice quale lato è vecchio.
+Il prompt ha tre passi: 1 verifica, 2 ripiego web, 3 risposta.
 
 ### Checklist dopo ogni modifica
-1. Se cambia `scripts/verifica.py`: aumenta `VERSIONE`.
-2. Aggiorna allo stesso valore ogni `versione="..."` in `SKILL.md` **e** in `prompt-di-sistema.md`. Se cambia il testo delle istruzioni, cambialo in entrambi.
-3. Reinstalla e ricopia:
-   ```bash
-   cd "C:/Users/Zzino/.claude/skills/controllo-link-gara" && python installa.py
-   cp "C:/Users/Zzino/.claude/skills/controllo-link-gara/scripts/verifica.py" "Z:/Zzino/Projects/AI/verificatore-anac/verifica_gara.py"
-   ```
-4. Ricorda all'utente di reincollare `prompt-di-sistema.md` in Unsloth: con una versione diversa il modulo non dà esito e stampa un errore di versione.
+1. Se cambia `verifica_gara.py`: aumenta `VERSIONE`.
+2. Aggiorna allo stesso valore ogni `versione="..."` in `prompt-di-sistema.md`.
+3. Ricorda all'utente di reincollare `prompt-di-sistema.md` in Unsloth: con una versione diversa il modulo non dà esito e stampa un errore di versione.
 
 ## Vincoli di Unsloth (verificati nel suo codice)
 
 Python di Unsloth: `C:/Users/Zzino/.unsloth/studio/unsloth_studio/Scripts/python.exe`. Sorgenti in `.../Lib/site-packages/studio/backend/core/inference/tools.py`.
-- Il modello **non conosce il percorso della skill** (nei tool `USERPROFILE`/`APPDATA` puntano alla cartella di lavoro). Mai percorsi assoluti in SKILL.md o nel prompt.
+- Nei tool `USERPROFILE`/`APPDATA` puntano alla cartella di lavoro: mai percorsi assoluti nel prompt.
 - `subprocess`, terminale ed `echo` vengono bloccati dal controllo di sicurezza (`_check_code_safety`): il modello deve fare tutto con una chiamata `python` che importa il modulo.
 - Il tool `python` (`_python_exec`) scrive il codice in un file `studio_exec_*.py` dentro la cartella di lavoro e lo lancia con `python -u`. Per questo un `.py` nella cartella di lavoro si importa senza percorsi.
 - La cartella di lavoro è quella del progetto solo se la chat è in un progetto Unsloth; altrimenti è una sandbox per chat.

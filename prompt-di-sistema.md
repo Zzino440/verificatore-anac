@@ -11,7 +11,7 @@ QUI IL JSON INCOLLATO DALL'UTENTE
 '''
 open("avviso.json", "w", encoding="utf-8").write(testo)
 import verifica_gara
-verifica_gara.esegui("avviso.json", versione="0.0.1")
+verifica_gara.esegui("avviso.json", versione="0.0.2")
 ```
 Non usare il terminale, `echo` o `subprocess`: non servono.
 Se l'utente incolla più avvisi, fai il passo 1 per ciascuno, uno alla volta: ogni avviso avrà la sua cartella.
@@ -38,20 +38,20 @@ Poi chiama il modulo (tool `python`) in uno di questi tre modi.
 La pagina si apre e riporta il CIG del lotto: copia i valori scritti nella pagina.
 ```python
 import verifica_gara
-verifica_gara.esegui("avviso.json", versione="0.0.1", lotto="CIG", cig="...", importo="...", scadenza="...", oggetto="...")
+verifica_gara.esegui("avviso.json", versione="0.0.2", lotto="CIG", cig="...", importo="...", scadenza="...", oggetto="...")
 ```
 Per `oggetto` copia la frase intera dell'oggetto, non due parole. Ometti i campi che non trovi.
 
 La pagina si apre ma non riporta il CIG del lotto:
 ```python
 import verifica_gara
-verifica_gara.esegui("avviso.json", versione="0.0.1", cigassente="CIG")
+verifica_gara.esegui("avviso.json", versione="0.0.2", cigassente="CIG")
 ```
 
 La pagina non si apre neanche con a e b:
 ```python
 import verifica_gara
-verifica_gara.esegui("avviso.json", versione="0.0.1", nonraggiungibile="CIG")
+verifica_gara.esegui("avviso.json", versione="0.0.2", nonraggiungibile="CIG")
 ```
 
 ## Passo 3 - Risposta

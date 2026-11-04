@@ -24,7 +24,7 @@ from .risposta import aggiorna_riepilogo, cartella_run, stampa
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-VERSIONE = "0.0.1"  # semver, uguale a versione="..." in prompt-di-sistema.md
+VERSIONE = "0.0.2"  # semver, uguale a versione="..." in prompt-di-sistema.md
 
 
 def _semver(v):

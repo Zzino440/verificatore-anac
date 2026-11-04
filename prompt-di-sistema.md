@@ -11,7 +11,7 @@ QUI IL JSON INCOLLATO DALL'UTENTE
 '''
 open("avviso.json", "w", encoding="utf-8").write(testo)
 import verifica_gara
-verifica_gara.esegui("avviso.json", versione="7")
+verifica_gara.esegui("avviso.json", versione="0.0.1")
 ```
 Non usare il terminale, `echo` o `subprocess`: non servono.
 Se l'utente incolla più avvisi, fai il passo 1 per ciascuno, uno alla volta: ogni avviso avrà la sua cartella.
@@ -21,7 +21,7 @@ Leggi l'output:
 - `FALLBACK_WEB <url> lotto <CIG>` → passo 2 per ogni riga.
 - `ERRORE` sul JSON → rifai il passo 1 copiando di nuovo il JSON.
 - `ERRORE di versione` → fermati e riporta all'utente il messaggio così com'è, senza aggiungere altro.
-- `No module named 'verifica_gara'` → fermati e di' all'utente che manca `verifica_gara.py` nella cartella del progetto, oppure che la chat non è dentro il progetto giusto.
+- `No module named 'verifica_gara'` → fermati e di' all'utente che manca la cartella `verifica_gara` nella cartella del progetto, oppure che la chat non è dentro il progetto giusto.
 
 ## Passo 2 - Solo se c'è FALLBACK_WEB (tool `web_search`)
 Apri la pagina con `web_search` e il parametro **`url`**, non con `query`.
@@ -38,20 +38,20 @@ Poi chiama il modulo (tool `python`) in uno di questi tre modi.
 La pagina si apre e riporta il CIG del lotto: copia i valori scritti nella pagina.
 ```python
 import verifica_gara
-verifica_gara.esegui("avviso.json", versione="7", lotto="CIG", cig="...", importo="...", scadenza="...", oggetto="...")
+verifica_gara.esegui("avviso.json", versione="0.0.1", lotto="CIG", cig="...", importo="...", scadenza="...", oggetto="...")
 ```
 Per `oggetto` copia la frase intera dell'oggetto, non due parole. Ometti i campi che non trovi.
 
 La pagina si apre ma non riporta il CIG del lotto:
 ```python
 import verifica_gara
-verifica_gara.esegui("avviso.json", versione="7", cigassente="CIG")
+verifica_gara.esegui("avviso.json", versione="0.0.1", cigassente="CIG")
 ```
 
 La pagina non si apre neanche con a e b:
 ```python
 import verifica_gara
-verifica_gara.esegui("avviso.json", versione="7", nonraggiungibile="CIG")
+verifica_gara.esegui("avviso.json", versione="0.0.1", nonraggiungibile="CIG")
 ```
 
 ## Passo 3 - Risposta

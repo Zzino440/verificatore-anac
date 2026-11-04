@@ -20,7 +20,7 @@ Il modello gira in **Unsloth Studio** (tool `python` e `web_search`). Lo stesso 
 | Import nel modello | `import controllo_link_gara` | `import verifica_gara` |
 | Uso in Unsloth | skill abilitata | prompt incollato nel System prompt, chat **dentro il progetto** con questa cartella, skill disattivata |
 
-**Fonte unica del codice:** `C:\Users\Zzino\.claude\skills\controllo-link-gara\scripts\verifica.py`. Non modificare `verifica_gara.py` direttamente: è una copia. I due file di istruzioni hanno gli stessi passi (1 verifica, 2 ripiego web, 3 risposta). Cambiano solo il nome del modulo, il messaggio per modulo mancante o versione sbagliata e l'introduzione: il prompt non ha frontmatter, si apre con "Sei il verificatore…" e spiega che "SKILL.md" nell'output indica il prompt.
+**Fonte unica del codice:** `C:\Users\Zzino\.claude\skills\controllo-link-gara\scripts\verifica.py`. Non modificare `verifica_gara.py` direttamente: è una copia. I due file di istruzioni hanno gli stessi passi (1 verifica, 2 ripiego web, 3 risposta). Cambiano solo il nome del modulo, il messaggio per modulo mancante e l'introduzione: il prompt non ha frontmatter e si apre con "Sei il verificatore…". L'output dello script non nomina mai la skill: il messaggio di errore di versione si adatta al modulo in uso (`__name__`) e dice quale lato è vecchio.
 
 ### Checklist dopo ogni modifica
 1. Se cambia `scripts/verifica.py`: aumenta `VERSIONE`.
@@ -46,6 +46,8 @@ Python di Unsloth: `C:/Users/Zzino/.unsloth/studio/unsloth_studio/Scripts/python
 `esegui("avviso.json", versione=..., [lotto=CIG, cig, importo, scadenza, oggetto] | [nonraggiungibile=CIG])`
 1. Il modello scrive il JSON incollato in `avviso.json` nella cartella di lavoro (file di passaggio, sovrascritto ogni volta) e chiama `esegui`.
 2. Lo script scarica la pagina con urllib (solo libreria standard) e confronta i campi: importo in formati IT/EN, scadenza con orario così com'è o convertito in ora italiana, oggetto per copertura delle parole.
+   - Con più lotti nella stessa pagina, importo e oggetto si cercano nel **blocco del lotto**, cioè il pezzo di pagina tra il suo CIG e quello di un altro lotto (`blocchi_lotti`, che sceglie se i dati stanno dopo o prima del CIG). CIG e scadenza si cercano su tutta la pagina.
+   - Se l'importo atteso manca, lo script riporta quello che la pagina indica per il lotto, ad esempio `€ 95.000,00 (diverso)`, e l'esito è `dubbio` con entrambi i valori nel motivo. Se il blocco non contiene importi, si cerca su tutta la pagina.
 3. Come prova della verifica stampa l'URL scaricato, il codice HTTP, il titolo della pagina e, per ogni campo, l'estratto della pagina in cui l'ha trovato. Il modello deve riportare l'output **così com'è**.
 4. Se la pagina non è utilizzabile (redirect, pagina quasi vuota/JS, CIG assente) stampa `FALLBACK_WEB <url> lotto <CIG>`. Il modello apre la pagina con `web_search(url=...)` e richiama `esegui` con i valori copiati (`lotto=...`) oppure con `nonraggiungibile=...`.
 5. Esiti per lotto: `verificato`, `dubbio`, `non_verificabile`. L'esito dell'avviso è quello del lotto peggiore. Senza CIG nella pagina non è mai `verificato`.
@@ -59,7 +61,10 @@ Una nuova verifica crea una cartella con `NNN` progressivo del giorno. Le chiama
 
 ## Prove
 
-Avvisi di esempio in `avvisi test/`. MAECI Madrid (`BC515775D3`) → `verificato`.
+Avvisi di esempio in `avvisi test/`:
+- MAECI Madrid (`BC515775D3`) → `verificato`;
+- visti Cina (`BAABC5642C`) → `verificato`;
+- `avviso_maeci_lingue_importo_errato.json`: 4 lotti, l'ultimo con importo volutamente sbagliato (59.000 invece di 95.000) → `dubbio` solo su `B64522444F`.
 
 Per simulare una chiamata esattamente come la fa Unsloth, eseguila in una cartella di prova nello scratchpad, così non sporchi `esiti/` del progetto:
 1. Copia `verifica_gara.py` nella cartella di prova.

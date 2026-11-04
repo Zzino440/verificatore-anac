@@ -1,12 +1,12 @@
 """Verifica che la pagina del link di gara riporti CIG, importo, scadenza e oggetto
 di ogni lotto di un avviso ANAC. Solo libreria standard.
 
-Installato da installa.py come modulo controllo_link_gara nel Python di Unsloth.
-Uso dal tool python (nella cartella di lavoro):
-  import controllo_link_gara
-  controllo_link_gara.esegui("avviso.json", versione="1")
-  controllo_link_gara.esegui("avviso.json", versione="1", lotto=CIG, cig=.., importo=.., scadenza=.., oggetto=..)
-  controllo_link_gara.esegui("avviso.json", versione="1", nonraggiungibile=CIG)
+Si usa come modulo: controllo_link_gara (installato da installa.py, flusso skill)
+oppure verifica_gara (copia nella cartella del progetto, flusso system prompt).
+Uso dal tool python (nella cartella di lavoro), con <modulo> uno dei due:
+  <modulo>.esegui("avviso.json", versione="N")
+  <modulo>.esegui("avviso.json", versione="N", lotto=CIG, cig=.., importo=.., scadenza=.., oggetto=..)
+  <modulo>.esegui("avviso.json", versione="N", nonraggiungibile=CIG)
 Da riga di comando: python verifica.py avviso.json [--lotto CIG ...] [--nonraggiungibile CIG]
 Ogni verifica va in esiti/AAAA-MM-GG/NNN_HH-MM-SS_<idAvviso>/ (avviso.json + esito.json),
 con esiti/AAAA-MM-GG/riepilogo.md che elenca le verifiche del giorno.
@@ -27,7 +27,7 @@ from html.parser import HTMLParser
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-VERSIONE = "3"  # deve coincidere con quella scritta in SKILL.md
+VERSIONE = "6"  # deve coincidere con quella scritta nelle istruzioni (SKILL.md e prompt-di-sistema.md)
 CARTELLA_ESITI = "esiti"
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -223,6 +223,39 @@ def cerca_importo(atteso, testo):
     return None
 
 
+IMPORTO_RX = r"€\s*\d[\d.,']*\d|\d[\d.,']*\d\s*(?:€|euro\b|eur\b)"
+
+
+def importo_della_pagina(testo, blocco):
+    """L'importo che la pagina indica per il lotto: il primo importo del suo blocco,
+    oppure, senza blocco, il primo importo scritto subito dopo la parola 'importo'."""
+    if blocco:
+        m = re.search(IMPORTO_RX, testo, re.I)
+        return m.group() if m else None
+    m = re.search(r"importo[^€\d]{0,60}(" + IMPORTO_RX + ")", testo, re.I)
+    return m.group(1) if m else None
+
+
+def blocchi_lotti(testo, lotti):
+    """CIG -> pezzo di pagina che riguarda quel lotto, se la pagina elenca piu' lotti.
+    Prova i due ordini possibili (dati dopo il proprio CIG o prima) e tiene quello
+    in cui ritrova piu' importi attesi; a parita', dati dopo il CIG."""
+    low = testo.lower()
+    pos = sorted((low.find(l["cig"].lower()), l["cig"]) for l in lotti
+                 if l["cig"] and l["cig"].lower() in low)
+    if len(pos) < 2:
+        return {}
+    inizi = [p for p, _ in pos]
+    lung = max(b - a for a, b in zip(inizi, inizi[1:]))
+    dopo = {c: testo[p:inizi[i + 1] if i + 1 < len(inizi) else p + lung]
+            for i, (p, c) in enumerate(pos)}
+    prima = {c: testo[inizi[i - 1] + len(pos[i - 1][1]) if i else max(0, p - lung):p + len(c)]
+             for i, (p, c) in enumerate(pos)}
+    importi = {l["cig"]: l["importo"] for l in lotti}
+    presi = lambda bl: sum(cerca_importo(importi[c], t) is not None for c, t in bl.items())
+    return prima if presi(prima) > presi(dopo) else dopo
+
+
 def date_nel_testo(testo):
     """Restituisce (data, orario o None, testo trovato)."""
     t = testo.lower()
@@ -327,24 +360,27 @@ def estratto_oggetto(lotto, testo):
     return None
 
 
-def valuta(lotto, testi, fonte, url_finale=None):
-    """testi: dict campo -> testo in cui cercare (pagina intera o stringa copiata dal modello)."""
+def valuta(lotto, testi, fonte, url_finale=None, importo_pagina=None):
+    """testi: dict campo -> testo in cui cercare (pagina intera, blocco del lotto o stringa
+    copiata dal modello). importo_pagina: l'importo che la pagina indica per il lotto."""
     campi = {}
     cig_ok = bool(lotto["cig"]) and lotto["cig"].lower() in testi["cig"].lower()
     campi["cig"] = {"atteso": lotto["cig"], "trovato": lotto["cig"] if cig_ok else None, "ok": cig_ok}
     imp = cerca_importo(lotto["importo"], testi["importo"])
     campi["importo"] = {"atteso": lotto["importo"], "trovato": imp, "ok": imp is not None}
+    diverso = None if imp else importo_pagina
+    if diverso:
+        campi["importo"]["trovato"] = f"{diverso} (diverso)"
     stato, s = cerca_scadenza(lotto["scadenza"], testi["scadenza"])
     campi["scadenza"] = {"atteso": lotto["scadenza"], "trovato": s, "ok": stato == "ok"}
     cop = copertura_oggetto(lotto, testi["oggetto"], fonte)
     campi["oggetto"] = {"atteso": lotto["descrizione"] or lotto["meta_desc"],
                         "trovato": f"copertura parole {cop:.0%}", "ok": cop >= 0.5}
     if fonte == "script":
-        t = testi["cig"]
-        campi["cig"]["estratto"] = estratto(t, campi["cig"]["trovato"])
-        campi["importo"]["estratto"] = estratto(t, imp)
-        campi["scadenza"]["estratto"] = estratto(t, (s or "").replace(" (ora non indicata)", ""))
-        campi["oggetto"]["estratto"] = estratto_oggetto(lotto, t)
+        campi["cig"]["estratto"] = estratto(testi["cig"], campi["cig"]["trovato"])
+        campi["importo"]["estratto"] = estratto(testi["importo"], imp or diverso)
+        campi["scadenza"]["estratto"] = estratto(testi["scadenza"], (s or "").replace(" (ora non indicata)", ""))
+        campi["oggetto"]["estratto"] = estratto_oggetto(lotto, testi["oggetto"])
     mancano = [k for k, v in campi.items() if not v["ok"]]
     if not cig_ok:
         esito, motivo = "non_verificabile", "CIG non presente nella pagina"
@@ -353,6 +389,8 @@ def valuta(lotto, testi, fonte, url_finale=None):
         motivo = "non coincide o manca: " + ", ".join(mancano)
         if stato == "orario_diverso":
             motivo += " (data giusta, orario diverso)"
+        if diverso:
+            motivo += f" (importo nella pagina {diverso}, nell'avviso {lotto['importo']})"
     else:
         esito, motivo = "verificato", "CIG, importo, scadenza e oggetto trovati"
     return {"cig": lotto["cig"], "url": lotto["url"], "url_finale": url_finale or lotto["url"],
@@ -384,7 +422,7 @@ def stampa(id_avviso, risultati):
         print(f"Esito lotto: {r['esito']} - {r['motivo']}")
     aperti = [r for r in risultati if r["esito"] == "da_completare"]
     if aperti:
-        print("\nAZIONE RICHIESTA: usa il tool web come indicato in SKILL.md per questi lotti:")
+        print("\nAZIONE RICHIESTA: usa il tool web come indicato al passo 2 delle istruzioni per questi lotti:")
         for r in aperti:
             print(f"FALLBACK_WEB {r['url']} lotto {r['cig']} ({r['motivo']})")
         return None
@@ -396,10 +434,19 @@ def stampa(id_avviso, risultati):
 def esegui(avviso="avviso.json", versione=None, lotto=None, cig="", importo="", scadenza="",
            oggetto="", nonraggiungibile=None):
     """Punto di ingresso per il tool python:
-    import controllo_link_gara; controllo_link_gara.esegui("avviso.json", versione="...")"""
+    import <modulo>; <modulo>.esegui("avviso.json", versione="...")"""
     if versione is not None and str(versione) != VERSIONE:
-        print(f"ERRORE: il modulo controllo_link_gara installato e' la versione {VERSIONE}, "
-              f"la skill chiede la {versione}. Di' all'utente di rilanciare installa.py della skill.")
+        skill = __name__ != "verifica_gara"
+        if str(versione).isdigit() and int(versione) < int(VERSIONE):
+            vecchio = "le istruzioni sono vecchie"
+            rimedio = ("aggiornare SKILL.md" if skill else
+                       "reincollare prompt-di-sistema.md nel System prompt e aprire una nuova chat nel progetto")
+        else:
+            vecchio = f"il modulo {__name__} e' vecchio"
+            rimedio = ("rilanciare installa.py della skill" if skill else
+                       "ricopiare verifica_gara.py nella cartella del progetto")
+        print(f"ERRORE di versione: le istruzioni chiedono la versione {versione}, il modulo {__name__} "
+              f"e' la {VERSIONE}, quindi {vecchio}. Di' all'utente di {rimedio}.")
         return
     try:
         _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile)
@@ -467,7 +514,14 @@ def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile):
                               "motivo": pag["problema"]})
             continue
         t = pag["testo"]
-        r = valuta(l, {"cig": t, "importo": t, "scadenza": t, "oggetto": t}, "script", pag["url_finale"])
+        if "blocchi" not in pag:
+            pag["blocchi"] = blocchi_lotti(t, [x for x in lotti if x["url"] == l["url"]])
+        bl = pag["blocchi"].get(l["cig"])
+        # importo e oggetto nel pezzo di pagina del lotto; se il blocco non ha importi
+        # (es. importi in una tabella separata) l'importo si cerca in tutta la pagina
+        t_imp = bl if bl and re.search(IMPORTO_RX, bl, re.I) else t
+        r = valuta(l, {"cig": t, "importo": t_imp, "scadenza": t, "oggetto": bl or t}, "script",
+                   pag["url_finale"], importo_della_pagina(t_imp, blocco=t_imp is bl))
         r["pagina"] = pag["pagina"]
         if not r["campi"]["cig"]["ok"]:
             r["esito"], r["motivo"] = "da_completare", "CIG non trovato nella pagina scaricata"

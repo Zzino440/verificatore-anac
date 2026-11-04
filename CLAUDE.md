@@ -43,14 +43,14 @@ Python di Unsloth: `C:/Users/Zzino/.unsloth/studio/unsloth_studio/Scripts/python
 
 ## Come funziona lo script
 
-`esegui("avviso.json", versione=..., [lotto=CIG, cig, importo, scadenza, oggetto] | [nonraggiungibile=CIG])`
+`esegui("avviso.json", versione=..., [lotto=CIG, cig, importo, scadenza, oggetto] | [cigassente=CIG] | [nonraggiungibile=CIG])`
 1. Il modello scrive il JSON incollato in `avviso.json` nella cartella di lavoro (file di passaggio, sovrascritto ogni volta) e chiama `esegui`.
 2. Lo script scarica la pagina con urllib (solo libreria standard) e confronta i campi: importo in formati IT/EN, scadenza con orario così com'è o convertito in ora italiana, oggetto per copertura delle parole.
    - Con più lotti nella stessa pagina, importo e oggetto si cercano nel **blocco del lotto**, cioè il pezzo di pagina tra il suo CIG e quello di un altro lotto (`blocchi_lotti`, che sceglie se i dati stanno dopo o prima del CIG). CIG e scadenza si cercano su tutta la pagina.
    - Se l'importo atteso manca, lo script riporta quello che la pagina indica per il lotto, ad esempio `€ 95.000,00 (diverso)`, e l'esito è `dubbio` con entrambi i valori nel motivo. Se il blocco non contiene importi, si cerca su tutta la pagina.
-3. Come prova della verifica stampa l'URL scaricato, il codice HTTP, il titolo della pagina e, per ogni campo, l'estratto della pagina in cui l'ha trovato. Il modello deve riportare l'output **così com'è**.
-4. Se la pagina non è utilizzabile (redirect, pagina quasi vuota/JS, CIG assente) stampa `FALLBACK_WEB <url> lotto <CIG>`. Il modello apre la pagina con `web_search(url=...)` e richiama `esegui` con i valori copiati (`lotto=...`) oppure con `nonraggiungibile=...`.
-5. Esiti per lotto: `verificato`, `dubbio`, `non_verificabile`. L'esito dell'avviso è quello del lotto peggiore. Senza CIG nella pagina non è mai `verificato`.
+3. A fine verifica stampa un blocco tra `===== RISPOSTA PER L'UTENTE =====` e `===== FINE =====`: esito finale e, per ogni lotto, "Perché" (il motivo in italiano semplice), pagina controllata con HTTP e titolo, tabella dei campi con gli estratti della pagina, "Cosa fare" (frase fissa per causa, `COSA_FARE`). Il modello copia il blocco così com'è e può aggiungere un breve commento pertinente, senza contraddire esito e motivo.
+4. Se la pagina è leggibile ma il CIG del lotto manca, lo script decide da solo, senza ripiego web: se la pagina riporta un altro CIG il link porta a un'altra gara (`altra_gara`); se riporta solo altri lotti dell'avviso, `cig_assente`. Il ripiego `FALLBACK_WEB <url> lotto <CIG>` resta per errore HTTP o di rete, redirect, pagina quasi vuota/JS e pagina senza nessun CIG. Il modello apre **solo il link dell'avviso** con `web_search(url=...)` (niente ricerca del CIG su altre pagine) e richiama `esegui` con `lotto=...` (valori copiati), `cigassente=...` (pagina aperta senza il CIG) o `nonraggiungibile=...` (pagina che non si apre). Le chiamate di ripiego riportano HTTP, titolo e "Problema dello script" della prima chiamata (`motivo_script`).
+5. Esiti per lotto: `verificato`, `dubbio`, `non_verificabile`, più il campo `causa` in `esito.json` (`tutto_trovato`, `campi_diversi`, `altra_gara`, `cig_assente`, `pagina_non_raggiungibile`, `link_assente`). L'esito dell'avviso è quello del lotto peggiore. Senza CIG nella pagina non è mai `verificato`. `riepilogo.md` ha anche la colonna `motivo`.
 
 Output su disco:
 ```
@@ -64,7 +64,8 @@ Una nuova verifica crea una cartella con `NNN` progressivo del giorno. Le chiama
 Avvisi di esempio in `avvisi test/`:
 - MAECI Madrid (`BC515775D3`) → `verificato`;
 - visti Cina (`BAABC5642C`) → `verificato`;
-- `avviso_maeci_lingue_importo_errato.json`: 4 lotti, l'ultimo con importo volutamente sbagliato (59.000 invece di 95.000) → `dubbio` solo su `B64522444F`.
+- `avviso_maeci_lingue_importo_errato.json`: 4 lotti, l'ultimo con importo volutamente sbagliato (59.000 invece di 95.000) → `dubbio` solo su `B64522444F`;
+- `avviso_maeci_link_sbagliato.json`: lotto di Francoforte con il link della gara di Madrid → `non_verificabile` (altra gara, CIG `BC515775D3`) già alla prima chiamata, senza `FALLBACK_WEB`.
 
 Per simulare una chiamata esattamente come la fa Unsloth, eseguila in una cartella di prova nello scratchpad, così non sporchi `esiti/` del progetto:
 1. Copia `verifica_gara.py` nella cartella di prova.

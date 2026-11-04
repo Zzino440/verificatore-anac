@@ -6,8 +6,9 @@ oppure verifica_gara (copia nella cartella del progetto, flusso system prompt).
 Uso dal tool python (nella cartella di lavoro), con <modulo> uno dei due:
   <modulo>.esegui("avviso.json", versione="N")
   <modulo>.esegui("avviso.json", versione="N", lotto=CIG, cig=.., importo=.., scadenza=.., oggetto=..)
+  <modulo>.esegui("avviso.json", versione="N", cigassente=CIG)
   <modulo>.esegui("avviso.json", versione="N", nonraggiungibile=CIG)
-Da riga di comando: python verifica.py avviso.json [--lotto CIG ...] [--nonraggiungibile CIG]
+Da riga di comando: python verifica.py avviso.json [--lotto CIG ...] [--cigassente CIG] [--nonraggiungibile CIG]
 Ogni verifica va in esiti/AAAA-MM-GG/NNN_HH-MM-SS_<idAvviso>/ (avviso.json + esito.json),
 con esiti/AAAA-MM-GG/riepilogo.md che elenca le verifiche del giorno.
 """
@@ -27,12 +28,20 @@ from html.parser import HTMLParser
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-VERSIONE = "6"  # deve coincidere con quella scritta nelle istruzioni (SKILL.md e prompt-di-sistema.md)
+VERSIONE = "7"  # deve coincidere con quella scritta nelle istruzioni (SKILL.md e prompt-di-sistema.md)
 CARTELLA_ESITI = "esiti"
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 ORDINE = {"verificato": 0, "dubbio": 1, "non_verificabile": 2}
+# cosa deve fare chi legge l'esito, per ogni causa ({cig} = CIG del lotto)
+COSA_FARE = {
+    "link_assente": "inserire documenti_di_gara_link nell'avviso.",
+    "pagina_non_raggiungibile": "controllare che il link sia giusto e che il sito sia online, poi rifare la verifica.",
+    "altra_gara": "correggere documenti_di_gara_link: deve portare alla pagina della gara con CIG {cig}.",
+    "cig_assente": "controllare che il link porti alla gara giusta e che la pagina riporti il CIG {cig}.",
+    "campi_diversi": "controllare i campi segnati NO: va corretto l'avviso oppure la pagina di gara.",
+}
 MESI = {
     "gennaio": 1, "febbraio": 2, "marzo": 3, "aprile": 4, "maggio": 5, "giugno": 6,
     "luglio": 7, "agosto": 8, "settembre": 9, "ottobre": 10, "novembre": 11, "dicembre": 12,
@@ -166,9 +175,9 @@ def scarica(url):
             raw = r.read()
             charset = r.headers.get_content_charset() or "utf-8"
     except urllib.error.HTTPError as e:
-        return {"problema": f"errore HTTP {e.code}"}
+        return {"problema": f"lo script non riesce ad aprire la pagina (errore HTTP {e.code})"}
     except Exception as e:  # rete, SSL, timeout
-        return {"problema": f"errore di rete: {str(e)[:100]}"}
+        return {"problema": f"lo script non riesce ad aprire la pagina (errore di rete: {str(e)[:100]})"}
     p = Testo()
     p.feed(raw.decode(charset, "replace"))
     testo = re.sub(r"\s+", " ", " ".join(p.parti).replace("\xa0", " ")).strip()
@@ -180,11 +189,20 @@ def scarica(url):
                       "titolo": re.sub(r"\s+", " ", p.titolo).strip(),
                       "scaricata_il": datetime.now().isoformat(timespec="seconds")}}
     if not stesso:
-        out["problema"] = (f"redirect a {finale}; se anche il tool web arriva a una pagina senza il CIG, "
-                           "usa nonraggiungibile")
+        out["problema"] = f"il link reindirizza a un'altra pagina ({finale})"
     elif len(testo) < 500:
-        out["problema"] = "pagina quasi vuota (forse caricata via JavaScript)"
+        out["problema"] = "la pagina scaricata dallo script è quasi vuota (forse caricata via JavaScript)"
     return out
+
+
+def cig_nella_pagina(testo):
+    """I codici scritti dopo la parola CIG (10 caratteri, maiuscole e cifre), senza ripetizioni."""
+    trovati = []
+    for m in re.finditer(r"\bCIG\b\W{0,10}([A-Za-z0-9]{10})\b", testo, re.I):
+        c = m.group(1)
+        if c.isupper() and re.search(r"\d", c) and c not in trovati:
+            trovati.append(c)
+    return trovati
 
 
 # ---------- confronti ----------
@@ -383,18 +401,26 @@ def valuta(lotto, testi, fonte, url_finale=None, importo_pagina=None):
         campi["oggetto"]["estratto"] = estratto_oggetto(lotto, testi["oggetto"])
     mancano = [k for k, v in campi.items() if not v["ok"]]
     if not cig_ok:
-        esito, motivo = "non_verificabile", "CIG non presente nella pagina"
+        esito, causa, motivo = "non_verificabile", "cig_assente", f"la pagina non riporta il CIG {lotto['cig']}"
     elif mancano:
-        esito = "dubbio"
-        motivo = "non coincide o manca: " + ", ".join(mancano)
+        esito, causa = "dubbio", "campi_diversi"
+        motivo = "la pagina riporta il CIG, ma non coincide o manca: " + ", ".join(mancano)
         if stato == "orario_diverso":
             motivo += " (data giusta, orario diverso)"
         if diverso:
-            motivo += f" (importo nella pagina {diverso}, nell'avviso {lotto['importo']})"
+            motivo += f" (importo nella pagina {diverso}, nell'avviso {euro(lotto['importo'])})"
     else:
-        esito, motivo = "verificato", "CIG, importo, scadenza e oggetto trovati"
+        esito, causa, motivo = "verificato", "tutto_trovato", "la pagina riporta CIG, importo, scadenza e oggetto"
     return {"cig": lotto["cig"], "url": lotto["url"], "url_finale": url_finale or lotto["url"],
-            "fonte": fonte, "campi": campi, "esito": esito, "motivo": motivo}
+            "fonte": fonte, "campi": campi, "esito": esito, "causa": causa, "motivo": motivo}
+
+
+def euro(v):
+    """5227740.17 -> € 5.227.740,17"""
+    try:
+        return "€ " + f"{float(v):,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    except (TypeError, ValueError):
+        return str(v)
 
 
 # ---------- output ----------
@@ -404,35 +430,50 @@ def corto(v, n=55):
     return s if len(s) <= n else s[:n] + "..."
 
 
-def stampa(id_avviso, risultati):
-    print(f"Avviso {id_avviso}")
-    for r in risultati:
-        print(f"\nLotto {r['cig']} | fonte: {r.get('fonte', '-')} | URL: {r['url']}")
-        if r["esito"] == "da_completare":
-            print(f"Pagina non utilizzabile dallo script: {r['motivo']}")
-            continue
-        print("| campo | atteso | trovato | ok |\n|---|---|---|---|")
-        for k, v in r["campi"].items():
-            print(f"| {k} | {corto(v['atteso'])} | {corto(v['trovato'])} | {'si' if v['ok'] else 'NO'} |")
-        estratti = [(k, v["estratto"]) for k, v in r["campi"].items() if v.get("estratto")]
-        if estratti:
-            print("Dove compaiono nella pagina scaricata:")
-            for k, e in estratti:
-                print(f"- {k}: \"{e}\"")
-        print(f"Esito lotto: {r['esito']} - {r['motivo']}")
+def stampa(id_avviso, risultati, run):
     aperti = [r for r in risultati if r["esito"] == "da_completare"]
     if aperti:
+        print(f"\nAvviso {id_avviso}: lo script non riesce a completare la verifica di questi lotti:")
+        for r in aperti:
+            print(f"- lotto {r['cig']}: {r['motivo']}")
         print("\nAZIONE RICHIESTA: usa il tool web come indicato al passo 2 delle istruzioni per questi lotti:")
         for r in aperti:
-            print(f"FALLBACK_WEB {r['url']} lotto {r['cig']} ({r['motivo']})")
+            print(f"FALLBACK_WEB {r['url']} lotto {r['cig']}")
         return None
     finale = max((r["esito"] for r in risultati), key=ORDINE.get)
-    print(f"\nESITO FINALE: {finale}")
+    print("\n===== RISPOSTA PER L'UTENTE =====")
+    print(f"Avviso {id_avviso}")
+    print(f"ESITO FINALE: {finale}")
+    for r in risultati:
+        print(f"\nLotto {r['cig']}: {r['esito']}")
+        print(f"  Perché: {r['motivo']}")
+        print(f"  Pagina controllata: {r['url'] or '-'}")
+        info = r.get("pagina")
+        if info:
+            print(f"  Scaricata dallo script: risposta HTTP {info['http']}, {info['caratteri']} caratteri, "
+                  f"titolo \"{info['titolo']}\"")
+        if r.get("fonte") == "web":
+            if r.get("motivo_script"):
+                print(f"  Problema dello script: {r['motivo_script']}")
+            print("  Ricontrollata dal modello con il tool web")
+        if r["campi"]:
+            print("  | campo | atteso | trovato | ok |\n  |---|---|---|---|")
+            for k, v in r["campi"].items():
+                print(f"  | {k} | {corto(v['atteso'])} | {corto(v['trovato'])} | {'si' if v['ok'] else 'NO'} |")
+            estratti = [(k, v["estratto"]) for k, v in r["campi"].items() if v.get("estratto")]
+            if estratti:
+                print("  Dove compaiono nella pagina scaricata:")
+                for k, e in estratti:
+                    print(f"  - {k}: \"{e}\"")
+        if r.get("causa") in COSA_FARE:
+            print("  Cosa fare: " + COSA_FARE[r["causa"]].format(cig=r["cig"]))
+    print(f"\nCartella della verifica: {run.replace(os.sep, '/')} (avviso.json ed esito.json)")
+    print("===== FINE =====")
     return finale
 
 
 def esegui(avviso="avviso.json", versione=None, lotto=None, cig="", importo="", scadenza="",
-           oggetto="", nonraggiungibile=None):
+           oggetto="", nonraggiungibile=None, cigassente=None):
     """Punto di ingresso per il tool python:
     import <modulo>; <modulo>.esegui("avviso.json", versione="...")"""
     if versione is not None and str(versione) != VERSIONE:
@@ -449,17 +490,17 @@ def esegui(avviso="avviso.json", versione=None, lotto=None, cig="", importo="", 
               f"e' la {VERSIONE}, quindi {vecchio}. Di' all'utente di {rimedio}.")
         return
     try:
-        _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile)
+        _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile, cigassente)
     except SystemExit as e:  # gli errori previsti escono con un messaggio, non con un traceback
         print(e)
 
 
-def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile):
+def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile, cigassente):
     id_avviso, lotti = leggi_avviso(avviso)
     if not lotti:
         sys.exit("ERRORE: nessun lotto trovato nell'avviso (sections -> items con tipo_oggetto 'lotto').")
 
-    bersaglio = lotto or nonraggiungibile
+    bersaglio = lotto or nonraggiungibile or cigassente
     if bersaglio and bersaglio not in {l["cig"] for l in lotti}:
         sys.exit(f"ERRORE: CIG {bersaglio} non presente nell'avviso. CIG validi: "
                  + ", ".join(l["cig"] for l in lotti))
@@ -485,18 +526,28 @@ def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile):
         if bersaglio and l["cig"] != bersaglio and l["cig"] in precedenti:
             risultati.append(precedenti[l["cig"]])
             continue
-        if nonraggiungibile == l["cig"]:
+        # ripiego web: si tengono le prove della prima chiamata (risposta HTTP, motivo dello script)
+        prima = precedenti.get(l["cig"], {})
+        motivo_script = prima.get("motivo_script") or (prima.get("motivo") if prima.get("fonte") == "script" else None)
+        if l["cig"] in (nonraggiungibile, cigassente):
+            if nonraggiungibile == l["cig"]:
+                causa, motivo = "pagina_non_raggiungibile", "la pagina non si apre né con lo script né con il tool web"
+            else:
+                causa, motivo = "cig_assente", f"anche con il tool web la pagina non riporta il CIG {l['cig']}"
             risultati.append({"cig": l["cig"], "url": l["url"], "fonte": "web", "campi": {},
-                              "esito": "non_verificabile",
-                              "motivo": "pagina non raggiungibile neanche con il tool web"})
+                              "pagina": prima.get("pagina"), "motivo_script": motivo_script,
+                              "esito": "non_verificabile", "causa": causa, "motivo": motivo})
             continue
         if lotto == l["cig"]:
             testi = {"cig": cig, "importo": importo, "scadenza": scadenza, "oggetto": oggetto}
-            risultati.append(valuta(l, testi, "web"))
+            r = valuta(l, testi, "web")
+            r["pagina"], r["motivo_script"] = prima.get("pagina"), motivo_script
+            risultati.append(r)
             continue
         if not l["url"]:
             risultati.append({"cig": l["cig"], "url": None, "fonte": "script", "campi": {},
-                              "esito": "non_verificabile", "motivo": "link di gara assente nell'avviso"})
+                              "esito": "non_verificabile", "causa": "link_assente",
+                              "motivo": "l'avviso non ha un link di gara (documenti_di_gara_link)"})
             continue
         if l["url"] not in cache:
             print(f"Scarico la pagina {l['url']} ...")
@@ -510,8 +561,8 @@ def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile):
         pag = cache[l["url"]]
         if pag.get("problema"):
             risultati.append({"cig": l["cig"], "url": l["url"], "url_finale": pag.get("url_finale"),
-                              "fonte": "script", "campi": {}, "esito": "da_completare",
-                              "motivo": pag["problema"]})
+                              "fonte": "script", "campi": {}, "pagina": pag.get("pagina"),
+                              "esito": "da_completare", "motivo": pag["problema"]})
             continue
         t = pag["testo"]
         if "blocchi" not in pag:
@@ -524,10 +575,24 @@ def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile):
                    pag["url_finale"], importo_della_pagina(t_imp, blocco=t_imp is bl))
         r["pagina"] = pag["pagina"]
         if not r["campi"]["cig"]["ok"]:
-            r["esito"], r["motivo"] = "da_completare", "CIG non trovato nella pagina scaricata"
+            codici = set(x["cig"] for x in lotti)
+            nella_pagina = cig_nella_pagina(t)
+            estranei = [c for c in nella_pagina if c not in codici]
+            if estranei:  # la pagina e' leggibile ma e' di un'altra gara: il tool web non serve
+                r["campi"]["cig"]["trovato"] = f"{estranei[0]} (diverso)"
+                r["campi"]["cig"]["estratto"] = estratto(t, estranei[0])
+                r["esito"], r["causa"] = "non_verificabile", "altra_gara"
+                r["motivo"] = (f"il link porta a un'altra gara: la pagina riporta il CIG "
+                               f"{', '.join(estranei)}, non {l['cig']}")
+            elif nella_pagina or any(c.lower() in t.lower() for c in codici):
+                r["esito"], r["causa"] = "non_verificabile", "cig_assente"
+                r["motivo"] = f"la pagina riporta altri lotti dell'avviso, ma non il CIG {l['cig']}"
+            else:  # nessun CIG: forse i dati arrivano via JavaScript, serve il tool web
+                r["esito"] = "da_completare"
+                r["motivo"] = "la pagina si apre ma non contiene nessun CIG (forse i dati sono caricati via JavaScript)"
         risultati.append(r)
 
-    finale = stampa(id_avviso, risultati)
+    finale = stampa(id_avviso, risultati, run)
     with open(file_esito, "w", encoding="utf-8") as f:
         json.dump({"idAvviso": id_avviso, "esito": finale or "da_completare", "lotti": risultati},
                   f, ensure_ascii=False, indent=2)
@@ -555,14 +620,17 @@ def cartella_run(id_avviso, nuova):
 def aggiorna_riepilogo(giorno):
     """Riscrive riepilogo.md del giorno: una riga per verifica, con esito e cartella."""
     righe = [f"# Verifiche del {os.path.basename(giorno)}", "",
-             "| n. | ora | avviso | esito | cartella |", "|---|---|---|---|---|"]
+             "| n. | ora | avviso | esito | motivo | cartella |", "|---|---|---|---|---|---|"]
     for nome in sorted(os.listdir(giorno)):
         p = os.path.join(giorno, nome, "esito.json")
         if os.path.isfile(p):
             with open(p, encoding="utf-8") as f:
                 e = json.load(f)
+            lotti = e.get("lotti") or []
+            peggiore = max(lotti, key=lambda r: ORDINE.get(r.get("esito"), 3), default={})
+            motivo = str(peggiore.get("motivo", "")).replace("|", "/")
             righe.append(f"| {nome[:3]} | {nome[4:12].replace('-', ':')} | {e.get('idAvviso')} | "
-                         f"{e.get('esito')} | {nome} |")
+                         f"{e.get('esito')} | {motivo} | {nome} |")
     with open(os.path.join(giorno, "riepilogo.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(righe) + "\n")
 
@@ -576,8 +644,10 @@ def main():
     ap.add_argument("--scadenza", default="")
     ap.add_argument("--oggetto", default="")
     ap.add_argument("--nonraggiungibile", metavar="CIG")
+    ap.add_argument("--cigassente", metavar="CIG")
     a = ap.parse_args()
-    esegui(a.avviso, None, a.lotto, a.cig, a.importo, a.scadenza, a.oggetto, a.nonraggiungibile)
+    esegui(a.avviso, None, a.lotto, a.cig, a.importo, a.scadenza, a.oggetto, a.nonraggiungibile,
+           a.cigassente)
 
 
 if __name__ == "__main__":

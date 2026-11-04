@@ -58,6 +58,7 @@ Python di Unsloth: `C:/Users/Zzino/.unsloth/studio/unsloth_studio/Scripts/python
 - `subprocess`, terminale ed `echo` vengono bloccati dal controllo di sicurezza (`_check_code_safety`): il modello deve fare tutto con una chiamata `python` che importa il modulo.
 - Il tool `python` (`_python_exec`) scrive il codice in un file `studio_exec_*.py` dentro la cartella di lavoro e lo lancia con `python -u`. Per questo un modulo o un pacchetto nella cartella di lavoro si importa senza percorsi.
 - La cartella di lavoro è quella del progetto solo se la chat è in un progetto Unsloth; altrimenti è una sandbox per chat.
+- Unsloth aggiunge alle istruzioni del modello l'`AGENTS.md` della cartella del progetto o, se manca o è vuoto, il `CLAUDE.md` (`core/agents_md.py`). Per questo esiste `AGENTS.md` (una riga, non vuoto): senza, il modello legge questo file e copia versioni d'esempio come `0.3.2`.
 - Il modello è piccolo: istruzioni brevi e imperative, una sola chiamata `python` per avviso. Copia spesso male il JSON (parentesi): lo script ripiega su `leggi_per_campi`, che legge i valori campo per campo.
 
 ## Come funziona lo script

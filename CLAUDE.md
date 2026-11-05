@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Progetto
 
-"Verifica automatica" per ANAC (DSTech): controlla che il `documenti_di_gara_link` di un avviso porti a una pagina che riporta i campi di ogni lotto previsti per la sua `tipologia` (CIG, importi, date, oggetto, stazione appaltante, aggiudicatari…). Contesto completo (cliente, vincoli, decisioni, persone, glossario) in `ANAC_verifica_automatica_contesto.md`; prossimi passi e cose da chiedere in `TODO.md`.
+"Verifica automatica" per ANAC (DSTech): controlla che il `documenti_di_gara_link` di un avviso porti a una pagina che riporta i campi di ogni lotto previsti per la sua `tipologia` (CIG, importi, date, oggetto, stazione appaltante, aggiudicatari…). Contesto completo (cliente, vincoli, decisioni, persone, glossario) in `docs/ANAC_verifica_automatica_contesto.md`; prossimi passi e cose da chiedere in `TODO.md`.
 - Nome ufficiale: "verifica automatica". Mai "AIGIS" né "progetto AI" (richiesta del cliente).
 - Vincoli: niente AI esterna, container senza GPU, modello locale piccolo che interviene il meno possibile. La logica deterministica sta nello script; il modello lo chiama e riporta l'output.
 - Il documento di contesto descrive anche la skill `verifica-automatica` (v0.3, tre step). È un lavoro precedente e separato: il flusso attivo è quello qui sotto.

@@ -1,4 +1,4 @@
-"""Blocco di risposta per l'utente e salvataggio degli esiti su disco."""
+"""Risposta per l'utente (breve a schermo, dettaglio in risposta.md) e salvataggio degli esiti."""
 import glob
 import json
 import os
@@ -23,46 +23,74 @@ def corto(v, n=55):
     return s if len(s) <= n else s[:n] + "..."
 
 
-def stampa(id_avviso, risultati, run):
-    aperti = [r for r in risultati if r["esito"] == "da_completare"]
-    if aperti:
-        print(f"\nAvviso {id_avviso}: lo script non riesce a completare la verifica di questi lotti:")
-        for r in aperti:
-            print(f"- lotto {r['cig']}: {r['motivo']}")
-        print("\nAZIONE RICHIESTA: usa il tool web come indicato al passo 2 delle istruzioni per questi lotti:")
-        for r in aperti:
-            print(f"FALLBACK_WEB {r['url']} lotto {r['cig']}")
+def p(path):
+    return path.replace(os.sep, "/")
+
+
+def esito_finale(risultati):
+    if any(r["esito"] == "da_completare" for r in risultati):
         return None
-    finale = max((r["esito"] for r in risultati), key=ORDINE.get)
-    print("\n===== RISPOSTA PER L'UTENTE =====")
-    print(f"Avviso {id_avviso}")
-    print(f"ESITO FINALE: {finale}")
+    return max((r["esito"] for r in risultati), key=ORDINE.get)
+
+
+def righe_fallback(file_avviso, risultati):
+    """Le righe per il modello: un lotto che lo script non riesce a completare, con i campi da copiare."""
+    out = []
     for r in risultati:
-        print(f"\nLotto {r['cig']}: {r['esito']}")
-        print(f"  Perché: {r['motivo']}")
-        print(f"  Pagina controllata: {r['url'] or '-'}")
+        if r["esito"] == "da_completare":
+            out.append(f"FALLBACK_WEB {r['url']} file {p(file_avviso)} lotto {r['cig']} "
+                       f"campi {', '.join(r['da_copiare'])}")
+    return out
+
+
+def righe_avviso(res):
+    """Il riassunto di un avviso: una riga di esito e una riga per ogni lotto non verificato."""
+    finale = res["esito"] or "da completare con il tool web (righe FALLBACK_WEB)"
+    out = [f"Avviso {res['idAvviso']} ({res['tipologia']}): {finale}"]
+    for r in res["lotti"]:
+        if r["esito"] in ("verificato", "da_completare"):
+            continue
+        riga = f"- lotto {r['cig']}: {r['esito']}. Perché: {r['motivo']}."
+        if r.get("causa") in COSA_FARE:
+            riga += " Cosa fare: " + COSA_FARE[r["causa"]].format(cig=r["cig"])
+        out.append(riga)
+    return out
+
+
+def blocco(righe):
+    print("\n===== RISPOSTA PER L'UTENTE =====")
+    print("\n".join(righe))
+    print("===== FINE =====")
+
+
+def dettaglio(id_avviso, tipologia, risultati, finale, run):
+    """Il dettaglio per chi controlla: perché, pagina, tabella dei campi ed estratti, cosa fare."""
+    out = [f"# Avviso {id_avviso} ({tipologia})", "", f"ESITO FINALE: {finale}"]
+    for r in risultati:
+        out += ["", f"## Lotto {r['cig']}: {r['esito']}", f"Perché: {r['motivo']}",
+                f"Pagina controllata: {r['url'] or '-'}"]
         info = r.get("pagina")
         if info:
-            print(f"  Scaricata dallo script: risposta HTTP {info['http']}, {info['caratteri']} caratteri, "
-                  f"titolo \"{info['titolo']}\"")
+            out.append(f"Scaricata dallo script: risposta HTTP {info['http']}, {info['caratteri']} caratteri, "
+                       f"titolo \"{info['titolo']}\"")
         if r.get("fonte") == "web":
             if r.get("motivo_script"):
-                print(f"  Problema dello script: {r['motivo_script']}")
-            print("  Ricontrollata dal modello con il tool web")
+                out.append(f"Problema dello script: {r['motivo_script']}")
+            out.append("Ricontrollata dal modello con il tool web")
         if r["campi"]:
-            print("  | campo | atteso | trovato | ok |\n  |---|---|---|---|")
+            out += ["", "| campo | atteso | trovato | ok |", "|---|---|---|---|"]
             for k, v in r["campi"].items():
-                print(f"  | {k} | {corto(v['atteso'])} | {corto(v['trovato'])} | {'si' if v['ok'] else 'NO'} |")
+                ok = "n/p" if v["ok"] is None else ("si" if v["ok"] else "NO")
+                out.append(f"| {k} | {corto(v['atteso'])} | {corto(v['trovato'])} | {ok} |")
             estratti = [(k, v["estratto"]) for k, v in r["campi"].items() if v.get("estratto")]
             if estratti:
-                print("  Dove compaiono nella pagina scaricata:")
-                for k, e in estratti:
-                    print(f"  - {k}: \"{e}\"")
+                out += ["", "Dove compaiono nella pagina scaricata:"]
+                out += [f"- {k}: \"{e}\"" for k, e in estratti]
         if r.get("causa") in COSA_FARE:
-            print("  Cosa fare: " + COSA_FARE[r["causa"]].format(cig=r["cig"]))
-    print(f"\nCartella della verifica: {run.replace(os.sep, '/')} (avviso.json ed esito.json)")
-    print("===== FINE =====")
-    return finale
+            out.append("Cosa fare: " + COSA_FARE[r["causa"]].format(cig=r["cig"]))
+    out += ["", "n/p = campo non previsto: vuoto nell'avviso, quindi non controllato."]
+    with open(os.path.join(run, "risposta.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(out) + "\n")
 
 
 def cartella_run(id_avviso, nuova):
@@ -85,16 +113,16 @@ def cartella_run(id_avviso, nuova):
 def aggiorna_riepilogo(giorno):
     """Riscrive riepilogo.md del giorno: una riga per verifica, con esito e cartella."""
     righe = [f"# Verifiche del {os.path.basename(giorno)}", "",
-             "| n. | ora | avviso | esito | motivo | cartella |", "|---|---|---|---|---|---|"]
+             "| n. | ora | avviso | tipologia | esito | motivo | cartella |", "|---|---|---|---|---|---|---|"]
     for nome in sorted(os.listdir(giorno)):
-        p = os.path.join(giorno, nome, "esito.json")
-        if os.path.isfile(p):
-            with open(p, encoding="utf-8") as f:
+        f_esito = os.path.join(giorno, nome, "esito.json")
+        if os.path.isfile(f_esito):
+            with open(f_esito, encoding="utf-8") as f:
                 e = json.load(f)
             lotti = e.get("lotti") or []
             peggiore = max(lotti, key=lambda r: ORDINE.get(r.get("esito"), 3), default={})
             motivo = str(peggiore.get("motivo", "")).replace("|", "/")
             righe.append(f"| {nome[:3]} | {nome[4:12].replace('-', ':')} | {e.get('idAvviso')} | "
-                         f"{e.get('esito')} | {motivo} | {nome} |")
+                         f"{e.get('tipologia', '-')} | {e.get('esito')} | {motivo} | {nome} |")
     with open(os.path.join(giorno, "riepilogo.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(righe) + "\n")

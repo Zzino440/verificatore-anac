@@ -1,16 +1,18 @@
-"""Verifica che la pagina del link di gara riporti CIG, importo, scadenza e oggetto
-di ogni lotto di un avviso ANAC. Solo libreria standard.
+"""Verifica che la pagina del link di gara riporti i campi di ogni lotto di un avviso ANAC
+(quelli attivi per la sua tipologia in campi.json). Solo libreria standard.
 
 Uso dal tool python (nella cartella di lavoro), come da prompt-di-sistema.md:
-  verifica_gara.esegui("avviso.json", versione="N")
-  verifica_gara.esegui("avviso.json", versione="N", lotto=CIG, cig=.., importo=.., scadenza=.., oggetto=..)
-  verifica_gara.esegui("avviso.json", versione="N", cigassente=CIG)
-  verifica_gara.esegui("avviso.json", versione="N", nonraggiungibile=CIG)
-Da riga di comando: python -m verifica_gara avviso.json [--lotto CIG ...] [--cigassente CIG] [--nonraggiungibile CIG]
-Ogni verifica va in esiti/AAAA-MM-GG/NNN_HH-MM-SS_<idAvviso>/ (avviso.json + esito.json),
+  verifica_gara.esegui_cartella("avvisi_da_verificare", versione="N")    tutti i *.json della cartella
+  verifica_gara.esegui("avviso.json", versione="N")                      un solo avviso
+  verifica_gara.esegui("<file>", versione="N", lotto=CIG, <campo>="valore copiato", ...)
+  verifica_gara.esegui("<file>", versione="N", cigassente=CIG)
+  verifica_gara.esegui("<file>", versione="N", nonraggiungibile=CIG)
+Da riga di comando: python -m verifica_gara <cartella o file .json>
+Ogni verifica va in esiti/AAAA-MM-GG/NNN_HH-MM-SS_<idAvviso>/ (avviso.json, esito.json, risposta.md),
 con esiti/AAAA-MM-GG/riepilogo.md che elenca le verifiche del giorno.
 """
 import argparse
+import glob
 import json
 import os
 import re
@@ -20,11 +22,12 @@ import sys
 from .avviso import leggi_avviso
 from .confronti import IMPORTO_RX, blocchi_lotti, estratto, importo_della_pagina, valuta
 from .pagina import cig_nella_pagina, scarica
-from .risposta import aggiorna_riepilogo, cartella_run, stampa
+from .risposta import (aggiorna_riepilogo, blocco, cartella_run, dettaglio, esito_finale, p,
+                       righe_avviso, righe_fallback)
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-VERSIONE = "0.0.2"  # semver, uguale a versione="..." in prompt-di-sistema.md
+VERSIONE = "0.1.0"  # semver, uguale a versione="..." in prompt-di-sistema.md
 
 
 def _semver(v):
@@ -33,31 +36,81 @@ def _semver(v):
     return tuple(int(p) for p in parti) if len(parti) == 3 and all(p.isdigit() for p in parti) else None
 
 
-def esegui(avviso="avviso.json", versione=None, lotto=None, cig="", importo="", scadenza="",
-           oggetto="", nonraggiungibile=None, cigassente=None):
-    """Punto di ingresso per il tool python:
-    import <modulo>; <modulo>.esegui("avviso.json", versione="...")
-    Prompt e modulo sono compatibili se coincidono major e minor: una patch non obbliga a
+def _versione_ok(versione):
+    """Prompt e modulo sono compatibili se coincidono major e minor: una patch non obbliga a
     reincollare il prompt."""
     chiesta, mia = _semver(versione), _semver(VERSIONE)
-    if versione is not None and (chiesta is None or chiesta[:2] != mia[:2]):
-        if chiesta is None or chiesta[:2] < mia[:2]:
-            vecchio = "le istruzioni sono vecchie"
-            rimedio = "reincollare prompt-di-sistema.md nel System prompt e aprire una nuova chat nel progetto"
-        else:
-            vecchio = f"il modulo {__name__} e' vecchio"
-            rimedio = "ricopiare la cartella verifica_gara nella cartella del progetto"
-        print(f"ERRORE di versione: le istruzioni chiedono la versione {versione}, il modulo {__name__} "
-              f"e' la {VERSIONE}, quindi {vecchio}. Di' all'utente di {rimedio}.")
+    if versione is None or (chiesta is not None and chiesta[:2] == mia[:2]):
+        return True
+    if chiesta is None or chiesta[:2] < mia[:2]:
+        vecchio = "le istruzioni sono vecchie"
+        rimedio = "reincollare prompt-di-sistema.md nel System prompt e aprire una nuova chat nel progetto"
+    else:
+        vecchio = f"il modulo {__name__} e' vecchio"
+        rimedio = "ricopiare la cartella verifica_gara nella cartella del progetto"
+    print(f"ERRORE di versione: le istruzioni chiedono la versione {versione}, il modulo {__name__} "
+          f"e' la {VERSIONE}, quindi {vecchio}. Di' all'utente di {rimedio}.")
+    return False
+
+
+def esegui(avviso="avviso.json", versione=None, lotto=None, nonraggiungibile=None, cigassente=None,
+           **valori):
+    """Un solo avviso. Nel ripiego web (lotto=CIG) gli altri argomenti sono i campi copiati dalla
+    pagina, con i nomi della riga FALLBACK_WEB."""
+    if not _versione_ok(versione):
         return
     try:
-        _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile, cigassente)
+        res = _esegui(avviso, lotto, valori, nonraggiungibile, cigassente)
     except SystemExit as e:  # gli errori previsti escono con un messaggio, non con un traceback
         print(e)
+        return
+    fallback = righe_fallback(avviso, res["lotti"])
+    if fallback:
+        print("AZIONE RICHIESTA: usa il tool web come indicato al passo 2 delle istruzioni per questi lotti:")
+        print("\n".join(fallback))
+        return
+    blocco(righe_avviso(res) + [f"Dettaglio con tabelle ed estratti: {p(res['run'])}/risposta.md"])
 
 
-def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile, cigassente):
-    id_avviso, lotti = leggi_avviso(avviso)
+def esegui_cartella(cartella="avvisi_da_verificare", versione=None, solo=None):
+    """I file .json della cartella, uno per avviso: tutti, oppure con solo="03" o solo=["02", "madrid"]
+    quelli il cui nome contiene uno dei testi. A schermo solo il riassunto e le righe FALLBACK_WEB;
+    il dettaglio di ogni avviso va nel suo risposta.md."""
+    if not _versione_ok(versione):
+        return
+    tutti = sorted(glob.glob(os.path.join(cartella, "*.json")))
+    if not tutti:
+        print(f"ERRORE: nessun file .json nella cartella {cartella} (cartella di lavoro {os.getcwd()}).")
+        return
+    filtri = [solo] if isinstance(solo, str) else (solo or [])
+    files = [f for f in tutti if not filtri or any(str(x).lower() in os.path.basename(f).lower() for x in filtri)]
+    if not files:
+        print(f"ERRORE: nessun file di {cartella} corrisponde a {solo!r}. File disponibili: "
+              + ", ".join(os.path.basename(f) for f in tutti))
+        return
+    righe, fallback, conta, giorno = [], [], {}, None
+    for f in files:
+        try:
+            res = _esegui(f, None, {}, None, None)
+        except SystemExit as e:
+            righe.append(f"File {p(f)}: {e}")
+            conta["errori"] = conta.get("errori", 0) + 1
+            continue
+        giorno = os.path.dirname(res["run"])
+        stato = res["esito"] or "da completare"
+        conta[stato] = conta.get(stato, 0) + 1
+        righe += righe_avviso(res)
+        fallback += righe_fallback(f, res["lotti"])
+    if fallback:
+        print("AZIONE RICHIESTA: usa il tool web come indicato al passo 2 delle istruzioni per questi lotti:")
+        print("\n".join(fallback))
+    testa = f"Avvisi controllati: {len(files)} ({', '.join(f'{k} {v}' for k, v in conta.items())})"
+    coda = [f"Riepilogo del giorno: {p(giorno)}/riepilogo.md"] if giorno else []
+    blocco([testa] + righe + coda)
+
+
+def _esegui(avviso, lotto, valori_web, nonraggiungibile, cigassente):
+    id_avviso, tipologia, lotti = leggi_avviso(avviso)
     if not lotti:
         sys.exit("ERRORE: nessun lotto trovato nell'avviso (sections -> items con tipo_oggetto 'lotto').")
 
@@ -65,11 +118,15 @@ def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile, ci
     if bersaglio and bersaglio not in {l["cig"] for l in lotti}:
         sys.exit(f"ERRORE: CIG {bersaglio} non presente nell'avviso. CIG validi: "
                  + ", ".join(l["cig"] for l in lotti))
+    if lotto:
+        noti = {c["nome"] for c in lotti[0]["campi"]}
+        ignoti = [k for k in valori_web if k not in noti]
+        if ignoti:
+            print(f"NOTA: campi ignorati perché non previsti per {tipologia}: {', '.join(ignoti)}")
 
     run = cartella_run(id_avviso, nuova=not bersaglio)
     if not bersaglio:
         shutil.copyfile(avviso, os.path.join(run, "avviso.json"))
-    print(f"Cartella di questa verifica: {run.replace(os.sep, '/')}")
     file_esito = os.path.join(run, "esito.json")
 
     precedenti = {}
@@ -100,8 +157,7 @@ def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile, ci
                               "esito": "non_verificabile", "causa": causa, "motivo": motivo})
             continue
         if lotto == l["cig"]:
-            testi = {"cig": cig, "importo": importo, "scadenza": scadenza, "oggetto": oggetto}
-            r = valuta(l, testi, "web")
+            r = valuta(l, valori_web, "web")
             r["pagina"], r["motivo_script"] = prima.get("pagina"), motivo_script
             risultati.append(r)
             continue
@@ -111,31 +167,24 @@ def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile, ci
                               "motivo": "l'avviso non ha un link di gara (documenti_di_gara_link)"})
             continue
         if l["url"] not in cache:
-            print(f"Scarico la pagina {l['url']} ...")
             cache[l["url"]] = scarica(l["url"])
-            info = cache[l["url"]].get("pagina")
-            if info:
-                print(f"  risposta HTTP {info['http']}, {info['caratteri']} caratteri di testo, "
-                      f"titolo della pagina: \"{info['titolo']}\"")
-            if cache[l["url"]].get("problema"):
-                print(f"  problema: {cache[l['url']]['problema']}")
         pag = cache[l["url"]]
+        # i campi che il modello deve copiare dalla pagina se serve il ripiego web
+        da_copiare = [c["nome"] for c in l["campi"] if l["valori"][c["nome"]]]
         if pag.get("problema"):
             risultati.append({"cig": l["cig"], "url": l["url"], "url_finale": pag.get("url_finale"),
                               "fonte": "script", "campi": {}, "pagina": pag.get("pagina"),
-                              "esito": "da_completare", "motivo": pag["problema"]})
+                              "esito": "da_completare", "motivo": pag["problema"], "da_copiare": da_copiare})
             continue
         t = pag["testo"]
         if "blocchi" not in pag:
             pag["blocchi"] = blocchi_lotti(t, [x for x in lotti if x["url"] == l["url"]])
         bl = pag["blocchi"].get(l["cig"])
-        # importo e oggetto nel pezzo di pagina del lotto; se il blocco non ha importi
-        # (es. importi in una tabella separata) l'importo si cerca in tutta la pagina
         t_imp = bl if bl and re.search(IMPORTO_RX, bl, re.I) else t
-        r = valuta(l, {"cig": t, "importo": t_imp, "scadenza": t, "oggetto": bl or t}, "script",
-                   pag["url_finale"], importo_della_pagina(t_imp, blocco=t_imp is bl))
+        r = valuta(l, {"pagina": t, "blocco": bl}, "script", pag["url_finale"],
+                   importo_della_pagina(t_imp, blocco=t_imp is bl))
         r["pagina"] = pag["pagina"]
-        if not r["campi"]["cig"]["ok"]:
+        if "cig" in r["campi"] and not r["campi"]["cig"]["ok"]:
             codici = set(x["cig"] for x in lotti)
             nella_pagina = cig_nella_pagina(t)
             estranei = [c for c in nella_pagina if c not in codici]
@@ -149,29 +198,26 @@ def _esegui(avviso, lotto, cig, importo, scadenza, oggetto, nonraggiungibile, ci
                 r["esito"], r["causa"] = "non_verificabile", "cig_assente"
                 r["motivo"] = f"la pagina riporta altri lotti dell'avviso, ma non il CIG {l['cig']}"
             else:  # nessun CIG: forse i dati arrivano via JavaScript, serve il tool web
-                r["esito"] = "da_completare"
+                r["esito"], r["da_copiare"] = "da_completare", da_copiare
                 r["motivo"] = "la pagina si apre ma non contiene nessun CIG (forse i dati sono caricati via JavaScript)"
         risultati.append(r)
 
-    finale = stampa(id_avviso, risultati, run)
+    finale = esito_finale(risultati)
     with open(file_esito, "w", encoding="utf-8") as f:
-        json.dump({"idAvviso": id_avviso, "versione": VERSIONE, "esito": finale or "da_completare",
-                   "lotti": risultati},
+        json.dump({"idAvviso": id_avviso, "tipologia": tipologia, "versione": VERSIONE,
+                   "esito": finale or "da_completare", "lotti": risultati},
                   f, ensure_ascii=False, indent=2)
+    if finale:
+        dettaglio(id_avviso, tipologia, risultati, finale, run)
     aggiorna_riepilogo(os.path.dirname(run))
-    print(f"Risultato salvato in {file_esito.replace(os.sep, '/')}")
+    return {"idAvviso": id_avviso, "tipologia": tipologia, "esito": finale, "lotti": risultati, "run": run}
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("avviso")
-    ap.add_argument("--lotto", help="CIG del lotto verificato col tool web")
-    ap.add_argument("--cig", default="")
-    ap.add_argument("--importo", default="")
-    ap.add_argument("--scadenza", default="")
-    ap.add_argument("--oggetto", default="")
-    ap.add_argument("--nonraggiungibile", metavar="CIG")
-    ap.add_argument("--cigassente", metavar="CIG")
+    ap.add_argument("percorso", help="cartella con gli avvisi .json oppure un solo file .json")
     a = ap.parse_args()
-    esegui(a.avviso, None, a.lotto, a.cig, a.importo, a.scadenza, a.oggetto, a.nonraggiungibile,
-           a.cigassente)
+    if os.path.isdir(a.percorso):
+        esegui_cartella(a.percorso)
+    else:
+        esegui(a.percorso)

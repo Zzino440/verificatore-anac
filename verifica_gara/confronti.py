@@ -1,4 +1,4 @@
-"""Confronto dei campi del lotto (CIG, importo, scadenza, oggetto) con il testo della pagina."""
+"""Confronto dei campi del lotto (quelli attivi in campi.json) con il testo della pagina."""
 import re
 import unicodedata
 from datetime import datetime, timedelta
@@ -121,8 +121,15 @@ def accettati(iso):
 
 
 def cerca_scadenza(atteso, testo):
-    """-> (stato, trovato) con stato in ok / orario_diverso / no."""
+    """-> (stato, trovato) con stato in ok / orario_diverso / no.
+    Se l'avviso riporta solo la data (es. data_stipula_contratto), l'orario non conta."""
     if not atteso:
+        return "no", None
+    if "T" not in str(atteso):
+        giorno = datetime.fromisoformat(str(atteso)[:10]).date()
+        for data, _, s in date_nel_testo(testo):
+            if data == giorno:
+                return "ok", s
         return "no", None
     ok = accettati(atteso)
     date_ok = {d for d, _ in ok}
@@ -150,14 +157,14 @@ def parole(s):
     return [w for w in re.findall(r"[a-z0-9]+", s) if len(w) > 3 and w not in STOPWORD]
 
 
-def copertura_oggetto(lotto, testo, fonte):
-    """Pagina intera: quota di parole dell'oggetto presenti nella pagina.
-    Tool web: il modello copia solo un pezzo del titolo, quindi conta la quota
-    delle parole copiate (almeno 3) che compaiono nell'oggetto atteso."""
+def copertura_testo(attesi, testo, fonte):
+    """Pagina intera: quota di parole del testo atteso presenti nella pagina (il migliore tra
+    gli attesi). Tool web: il modello copia solo un pezzo del titolo, quindi conta la quota
+    delle parole copiate (almeno 3) che compaiono nel testo atteso."""
     pagina = set(parole(testo))
     migliore = 0.0
-    for desc in (lotto["descrizione"], lotto["meta_desc"]):
-        w = set(parole(desc))
+    for desc in attesi:
+        w = set(parole(str(desc)))
         if fonte == "web":
             if len(pagina) >= 3:
                 migliore = max(migliore, len(w & pagina) / len(pagina))
@@ -177,10 +184,10 @@ def estratto(testo, frammento, margine=60):
     return ("..." if a else "") + testo[a:b] + ("..." if b < len(testo) else "")
 
 
-def estratto_oggetto(lotto, testo):
-    """Il tratto piu' lungo dell'oggetto (almeno 3 parole, dall'inizio) che compare nella pagina."""
-    for desc in (lotto["descrizione"], lotto["meta_desc"]):
-        w = desc.split()
+def estratto_testo(attesi, testo):
+    """Il tratto piu' lungo del testo atteso (almeno 3 parole, dall'inizio) che compare nella pagina."""
+    for desc in attesi:
+        w = str(desc).split()
         for n in range(len(w), 2, -1):
             e = estratto(testo, " ".join(w[:n]))
             if e:
@@ -188,39 +195,82 @@ def estratto_oggetto(lotto, testo):
     return None
 
 
+def _codice(s):
+    return re.sub(r"\s", "", str(s)).lower()
+
+
+def confronta(campo, valore, testo, fonte, alternative=()):
+    """Un valore di un campo contro un testo. -> (ok, trovato, frammento per l'estratto, stato data)."""
+    tipo = campo["tipo"]
+    if tipo == "codice":
+        ok = _codice(valore) in _codice(testo)
+        return ok, str(valore) if ok else None, str(valore), None
+    if tipo == "importo":
+        try:
+            imp = cerca_importo(float(valore), testo)
+        except (TypeError, ValueError):
+            imp = None
+        return imp is not None, imp, imp, None
+    if tipo == "data":
+        stato, s = cerca_scadenza(valore, testo)
+        return stato == "ok", s, (s or "").replace(" (ora non indicata)", ""), stato
+    if tipo == "testo":
+        attesi = [valore, *alternative]
+        cop = copertura_testo(attesi, testo, fonte)
+        return cop >= 0.5, f"copertura parole {cop:.0%}", attesi, None
+    return None, "confronto non disponibile", None, None  # sino, link
+
+
 def valuta(lotto, testi, fonte, url_finale=None, importo_pagina=None):
-    """testi: dict campo -> testo in cui cercare (pagina intera, blocco del lotto o stringa
-    copiata dal modello). importo_pagina: l'importo che la pagina indica per il lotto."""
-    campi = {}
-    cig_ok = bool(lotto["cig"]) and lotto["cig"].lower() in testi["cig"].lower()
-    campi["cig"] = {"atteso": lotto["cig"], "trovato": lotto["cig"] if cig_ok else None, "ok": cig_ok}
-    imp = cerca_importo(lotto["importo"], testi["importo"])
-    campi["importo"] = {"atteso": lotto["importo"], "trovato": imp, "ok": imp is not None}
-    diverso = None if imp else importo_pagina
-    if diverso:
-        campi["importo"]["trovato"] = f"{diverso} (diverso)"
-    stato, s = cerca_scadenza(lotto["scadenza"], testi["scadenza"])
-    campi["scadenza"] = {"atteso": lotto["scadenza"], "trovato": s, "ok": stato == "ok"}
-    cop = copertura_oggetto(lotto, testi["oggetto"], fonte)
-    campi["oggetto"] = {"atteso": lotto["descrizione"] or lotto["meta_desc"],
-                        "trovato": f"copertura parole {cop:.0%}", "ok": cop >= 0.5}
-    if fonte == "script":
-        campi["cig"]["estratto"] = estratto(testi["cig"], campi["cig"]["trovato"])
-        campi["importo"]["estratto"] = estratto(testi["importo"], imp or diverso)
-        campi["scadenza"]["estratto"] = estratto(testi["scadenza"], (s or "").replace(" (ora non indicata)", ""))
-        campi["oggetto"]["estratto"] = estratto_oggetto(lotto, testi["oggetto"])
-    mancano = [k for k, v in campi.items() if not v["ok"]]
+    """Confronta i campi attivi del lotto con la pagina.
+    testi (script): {"pagina": testo intero, "blocco": pezzo del lotto o None};
+    testi (web): {nome campo: testo copiato dal modello}.
+    importo_pagina: l'importo che la pagina indica per il lotto (caso "(diverso)")."""
+    campi, stati_data, diverso = {}, [], None
+    for c in lotto["campi"]:
+        valori = lotto["valori"][c["nome"]]
+        voce = {"atteso": valori[0] if len(valori) == 1 else (valori or None)}
+        if not valori:
+            voce.update(trovato="non previsto", ok=None)
+            campi[c["nome"]] = voce
+            continue
+        if fonte == "web":
+            t = str(testi.get(c["nome"]) or "")
+        elif (c["livello"] == "lotto" and c["tipo"] in ("importo", "testo") and testi["blocco"]
+              and (c["tipo"] == "testo" or re.search(IMPORTO_RX, testi["blocco"], re.I))):
+            # importi e testi del lotto nel suo pezzo di pagina; senza importi nel blocco
+            # (es. importi in una tabella separata) l'importo si cerca in tutta la pagina
+            t = testi["blocco"]
+        else:
+            t = testi["pagina"]
+        alt = lotto["alternative_oggetto"] if c["nome"] == "descrizione" else ()
+        esiti = [confronta(c, v, t, fonte, alt) for v in valori]
+        ok = None if any(e[0] is None for e in esiti) else all(e[0] for e in esiti)
+        trovati = [e[1] for e in esiti if e[1]]
+        voce.update(trovato="; ".join(trovati) if trovati else None, ok=ok)
+        stati_data += [e[3] for e in esiti if e[3]]
+        fr = next((e[2] for e in esiti if e[0]), None)  # cosa mostrare come estratto
+        if ok is False and c["nome"] == lotto["campo_importo"] and importo_pagina:
+            diverso = fr = importo_pagina
+            voce["trovato"] = f"{diverso} (diverso)"
+        if fonte == "script":
+            voce["estratto"] = estratto_testo(fr, t) if isinstance(fr, list) else estratto(t, fr)
+        campi[c["nome"]] = voce
+    cig_ok = bool(campi.get("cig", {}).get("ok"))
+    mancano = [k for k, v in campi.items() if v["ok"] is False]
     if not cig_ok:
         esito, causa, motivo = "non_verificabile", "cig_assente", f"la pagina non riporta il CIG {lotto['cig']}"
     elif mancano:
         esito, causa = "dubbio", "campi_diversi"
         motivo = "la pagina riporta il CIG, ma non coincide o manca: " + ", ".join(mancano)
-        if stato == "orario_diverso":
+        if "orario_diverso" in stati_data:
             motivo += " (data giusta, orario diverso)"
         if diverso:
             motivo += f" (importo nella pagina {diverso}, nell'avviso {euro(lotto['importo'])})"
     else:
-        esito, causa, motivo = "verificato", "tutto_trovato", "la pagina riporta CIG, importo, scadenza e oggetto"
+        controllati = [k for k, v in campi.items() if v["ok"]]
+        esito, causa = "verificato", "tutto_trovato"
+        motivo = "la pagina riporta tutti i campi controllati: " + ", ".join(controllati)
     return {"cig": lotto["cig"], "url": lotto["url"], "url_finale": url_finale or lotto["url"],
             "fonte": fonte, "campi": campi, "esito": esito, "causa": causa, "motivo": motivo}
 

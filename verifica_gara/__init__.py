@@ -1,9 +1,8 @@
 """Verifica che la pagina del link di gara riporti i campi di ogni lotto di un avviso ANAC
 (quelli attivi per la sua tipologia in campi.json). Solo libreria standard.
 
-Uso dal tool python (nella cartella di lavoro), come da prompt-di-sistema.md:
-  verifica_gara.esegui_cartella("avvisi_da_verificare", versione="N")    tutti i *.json della cartella
-  verifica_gara.esegui("avviso.json", versione="N")                      un solo avviso
+Uso dal tool python (nella cartella di lavoro), come da prompt-di-sistema.md, un avviso per chat:
+  verifica_gara.esegui("3", versione="N")             numero o pezzo del nome di un file di avvisi_da_verificare/
   verifica_gara.esegui("<file>", versione="N", lotto=CIG, <campo>="valore copiato", ...)
   verifica_gara.esegui("<file>", versione="N", cigassente=CIG)
   verifica_gara.esegui("<file>", versione="N", nonraggiungibile=CIG)
@@ -27,7 +26,7 @@ from .risposta import (aggiorna_riepilogo, blocco, cartella_run, dettaglio, esit
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-VERSIONE = "0.1.0"  # semver, uguale a versione="..." in prompt-di-sistema.md
+VERSIONE = "0.2.0"  # semver, uguale a versione="..." in prompt-di-sistema.md
 
 
 def _semver(v):
@@ -53,13 +52,39 @@ def _versione_ok(versione):
     return False
 
 
+CARTELLA_AVVISI = "avvisi_da_verificare"
+
+
+def _trova_avviso(rif):
+    """Il file dell'avviso: rif e' un percorso esistente, il numero del file ("3", "03") o un pezzo
+    del suo nome in avvisi_da_verificare/. Deve corrispondere a un solo file."""
+    if os.path.isfile(rif):
+        return rif
+    tutti = sorted(glob.glob(os.path.join(CARTELLA_AVVISI, "*.json")))
+    nomi = [os.path.basename(f) for f in tutti]
+    r = str(rif).strip().lower()
+    if r.isdigit():
+        presi = [f for f, n in zip(tutti, nomi) if re.match(r"\d+_", n) and int(n.split("_")[0]) == int(r)]
+    else:
+        r = re.sub(r"[\s-]+", "_", r)
+        presi = [f for f, n in zip(tutti, nomi) if r in n.lower()]
+    if not presi:
+        sys.exit(f"ERRORE: nessun avviso corrisponde a {rif!r}. Avvisi disponibili: " + ", ".join(nomi))
+    if len(presi) > 1:
+        sys.exit(f"ERRORE: {rif!r} corrisponde a più avvisi ("
+                 + ", ".join(os.path.basename(f) for f in presi) + "): indicane uno solo.")
+    return presi[0]
+
+
 def esegui(avviso="avviso.json", versione=None, lotto=None, nonraggiungibile=None, cigassente=None,
            **valori):
-    """Un solo avviso. Nel ripiego web (lotto=CIG) gli altri argomenti sono i campi copiati dalla
-    pagina, con i nomi della riga FALLBACK_WEB."""
+    """Un solo avviso: un percorso, oppure il numero o un pezzo del nome di un file di
+    avvisi_da_verificare/. Nel ripiego web (lotto=CIG) gli altri argomenti sono i campi copiati
+    dalla pagina, con i nomi della riga FALLBACK_WEB."""
     if not _versione_ok(versione):
         return
     try:
+        avviso = _trova_avviso(avviso)
         res = _esegui(avviso, lotto, valori, nonraggiungibile, cigassente)
     except SystemExit as e:  # gli errori previsti escono con un messaggio, non con un traceback
         print(e)
@@ -72,21 +97,14 @@ def esegui(avviso="avviso.json", versione=None, lotto=None, nonraggiungibile=Non
     blocco(righe_avviso(res) + [f"Dettaglio con tabelle ed estratti: {p(res['run'])}/risposta.md"])
 
 
-def esegui_cartella(cartella="avvisi_da_verificare", versione=None, solo=None):
-    """I file .json della cartella, uno per avviso: tutti, oppure con solo="03" o solo=["02", "madrid"]
-    quelli il cui nome contiene uno dei testi. A schermo solo il riassunto e le righe FALLBACK_WEB;
-    il dettaglio di ogni avviso va nel suo risposta.md."""
+def esegui_cartella(cartella=CARTELLA_AVVISI, versione=None):
+    """Tutti i file .json della cartella, uno per avviso (riga di comando, non dal modello).
+    A schermo solo il riassunto e le righe FALLBACK_WEB; il dettaglio va nel risposta.md di ciascuno."""
     if not _versione_ok(versione):
         return
-    tutti = sorted(glob.glob(os.path.join(cartella, "*.json")))
-    if not tutti:
-        print(f"ERRORE: nessun file .json nella cartella {cartella} (cartella di lavoro {os.getcwd()}).")
-        return
-    filtri = [solo] if isinstance(solo, str) else (solo or [])
-    files = [f for f in tutti if not filtri or any(str(x).lower() in os.path.basename(f).lower() for x in filtri)]
+    files = sorted(glob.glob(os.path.join(cartella, "*.json")))
     if not files:
-        print(f"ERRORE: nessun file di {cartella} corrisponde a {solo!r}. File disponibili: "
-              + ", ".join(os.path.basename(f) for f in tutti))
+        print(f"ERRORE: nessun file .json nella cartella {cartella} (cartella di lavoro {os.getcwd()}).")
         return
     righe, fallback, conta, giorno = [], [], {}, None
     for f in files:

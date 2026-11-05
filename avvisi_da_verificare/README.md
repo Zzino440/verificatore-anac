@@ -1,6 +1,9 @@
 # Avvisi da verificare
 
-Un avviso ANAC in JSON per file. Il modello li verifica con `esegui_cartella`: tutti, oppure solo quelli il cui nome contiene il testo di `solo`, per esempio `solo=["03"]` o `solo=["madrid", "cairo"]`. Per aggiungere un avviso basta salvarlo qui come `NN_descrizione.json`.
+Un avviso ANAC in JSON per file. Per aggiungerne uno basta salvarlo qui come `NN_descrizione.json`.
+
+- In chat si verifica **un avviso per chat**, indicato con il numero o con un pezzo del nome ("verifica il 3", "verifica Cairo"). Il modello chiama `verifica_gara.esegui("3", ...)`. Se il riferimento corrisponde a nessun file o a più di uno, il modulo dà errore e mostra l'elenco.
+- Tutta la cartella, senza modello: `python -m verifica_gara avvisi_da_verificare`.
 
 Esempi di partenza, da [Esempi bandi ANAC Appratto](https://app.notion.com/p/40d28f36105d80698023d79c9cb36c4c) (tutti MAECI su maeci.traspare.com, tipologia BANDI):
 

@@ -157,18 +157,13 @@ def parole(s):
     return [w for w in re.findall(r"[a-z0-9]+", s) if len(w) > 3 and w not in STOPWORD]
 
 
-def copertura_testo(attesi, testo, fonte):
-    """Pagina intera: quota di parole del testo atteso presenti nella pagina (il migliore tra
-    gli attesi). Tool web: il modello copia solo un pezzo del titolo, quindi conta la quota
-    delle parole copiate (almeno 3) che compaiono nel testo atteso."""
+def copertura_testo(attesi, testo):
+    """Quota di parole del testo atteso presenti nella pagina (il migliore tra gli attesi)."""
     pagina = set(parole(testo))
     migliore = 0.0
     for desc in attesi:
         w = set(parole(str(desc)))
-        if fonte == "web":
-            if len(pagina) >= 3:
-                migliore = max(migliore, len(w & pagina) / len(pagina))
-        elif w:
+        if w:
             migliore = max(migliore, len(w & pagina) / len(w))
     return migliore
 
@@ -199,7 +194,7 @@ def _codice(s):
     return re.sub(r"\s", "", str(s)).lower()
 
 
-def confronta(campo, valore, testo, fonte, alternative=()):
+def confronta(campo, valore, testo, alternative=()):
     """Un valore di un campo contro un testo. -> (ok, trovato, frammento per l'estratto, stato data)."""
     tipo = campo["tipo"]
     if tipo == "codice":
@@ -216,15 +211,14 @@ def confronta(campo, valore, testo, fonte, alternative=()):
         return stato == "ok", s, (s or "").replace(" (ora non indicata)", ""), stato
     if tipo == "testo":
         attesi = [valore, *alternative]
-        cop = copertura_testo(attesi, testo, fonte)
+        cop = copertura_testo(attesi, testo)
         return cop >= 0.5, f"copertura parole {cop:.0%}", attesi, None
     return None, "confronto non disponibile", None, None  # sino, link
 
 
-def valuta(lotto, testi, fonte, url_finale=None, importo_pagina=None):
-    """Confronta i campi attivi del lotto con la pagina.
-    testi (script): {"pagina": testo intero, "blocco": pezzo del lotto o None};
-    testi (web): {nome campo: testo copiato dal modello}.
+def valuta(lotto, pagina, blocco, url_finale, importo_pagina=None):
+    """Confronta i campi attivi del lotto con la pagina (testo intero) e con il blocco del lotto
+    (pezzo di pagina che lo riguarda, o None).
     importo_pagina: l'importo che la pagina indica per il lotto (caso "(diverso)")."""
     campi, stati_data, diverso = {}, [], None
     for c in lotto["campi"]:
@@ -234,17 +228,15 @@ def valuta(lotto, testi, fonte, url_finale=None, importo_pagina=None):
             voce.update(trovato="non previsto", ok=None)
             campi[c["nome"]] = voce
             continue
-        if fonte == "web":
-            t = str(testi.get(c["nome"]) or "")
-        elif (c["livello"] == "lotto" and c["tipo"] in ("importo", "testo") and testi["blocco"]
-              and (c["tipo"] == "testo" or re.search(IMPORTO_RX, testi["blocco"], re.I))):
+        if (c["livello"] == "lotto" and c["tipo"] in ("importo", "testo") and blocco
+                and (c["tipo"] == "testo" or re.search(IMPORTO_RX, blocco, re.I))):
             # importi e testi del lotto nel suo pezzo di pagina; senza importi nel blocco
             # (es. importi in una tabella separata) l'importo si cerca in tutta la pagina
-            t = testi["blocco"]
+            t = blocco
         else:
-            t = testi["pagina"]
+            t = pagina
         alt = lotto["alternative_oggetto"] if c["nome"] == "descrizione" else ()
-        esiti = [confronta(c, v, t, fonte, alt) for v in valori]
+        esiti = [confronta(c, v, t, alt) for v in valori]
         ok = None if any(e[0] is None for e in esiti) else all(e[0] for e in esiti)
         trovati = [e[1] for e in esiti if e[1]]
         voce.update(trovato="; ".join(trovati) if trovati else None, ok=ok)
@@ -253,8 +245,7 @@ def valuta(lotto, testi, fonte, url_finale=None, importo_pagina=None):
         if ok is False and c["nome"] == lotto["campo_importo"] and importo_pagina:
             diverso = fr = importo_pagina
             voce["trovato"] = f"{diverso} (diverso)"
-        if fonte == "script":
-            voce["estratto"] = estratto_testo(fr, t) if isinstance(fr, list) else estratto(t, fr)
+        voce["estratto"] = estratto_testo(fr, t) if isinstance(fr, list) else estratto(t, fr)
         campi[c["nome"]] = voce
     cig_ok = bool(campi.get("cig", {}).get("ok"))
     mancano = [k for k, v in campi.items() if v["ok"] is False]
@@ -271,8 +262,7 @@ def valuta(lotto, testi, fonte, url_finale=None, importo_pagina=None):
         controllati = [k for k, v in campi.items() if v["ok"]]
         esito, causa = "verificato", "tutto_trovato"
         motivo = "la pagina riporta tutti i campi controllati: " + ", ".join(controllati)
-    return {"cig": lotto["cig"], "url": lotto["url"], "url_finale": url_finale or lotto["url"],
-            "fonte": fonte, "campi": campi, "esito": esito, "causa": causa, "motivo": motivo}
+    return {"cig": lotto["cig"], "url": lotto["url"], "url_finale": url_finale, "campi": campi, "esito": esito, "causa": causa, "motivo": motivo}
 
 
 def euro(v):

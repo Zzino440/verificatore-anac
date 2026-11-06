@@ -59,10 +59,11 @@ def scarica(url):
            "pagina": {"http": stato_http, "caratteri": len(testo),
                       "titolo": re.sub(r"\s+", " ", p.titolo).strip(),
                       "scaricata_il": datetime.now().isoformat(timespec="seconds")}}
+    # non bloccano l'analisi: spiegano il motivo se il CIG manca
     if not stesso:
-        out["problema"] = f"il link reindirizza a un'altra pagina ({finale})"
+        out["nota"] = f"il link reindirizza a un'altra pagina ({finale})"
     elif len(testo) < 500:
-        out["problema"] = "la pagina scaricata dallo script è quasi vuota (forse caricata via JavaScript)"
+        out["nota"] = "la pagina è quasi vuota (forse caricata via JavaScript)"
     return out
 
 

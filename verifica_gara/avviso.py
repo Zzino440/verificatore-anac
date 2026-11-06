@@ -68,22 +68,12 @@ def leggi_avviso(path):
     """-> (idAvviso, tipologia, lotti). Ogni lotto: cig, url, valori {nome: [valori]},
     alternative dell'oggetto (metadata.descrizione e titolo)."""
     try:
-        with open(path, "rb") as f:
-            raw = f.read()
-        try:
-            testo = raw.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            testo = raw.decode("cp850")  # file scritto con echo dal prompt di Windows
-        avviso = json.loads(testo)
+        with open(path, encoding="utf-8-sig") as f:
+            avviso = json.load(f)
     except FileNotFoundError:
         sys.exit(f"ERRORE: file {path} non trovato nella cartella di lavoro {os.getcwd()}")
     except json.JSONDecodeError as e:
-        id_avviso, tipologia, lotti = leggi_per_campi(testo)
-        if not lotti:
-            sys.exit(f"ERRORE: {path} non e' un JSON valido ({e}) e non contiene nessun cig. "
-                     "Riscrivi il file copiando esattamente il testo incollato dall'utente.")
-        print("NOTA: JSON con parentesi sbagliate, valori letti campo per campo.")
-        return id_avviso, tipologia, lotti
+        sys.exit(f"ERRORE: {path} non e' un JSON valido ({e}).")
     tipologia = avviso.get("tipologia")
     campi = campi_della_tipologia(tipologia)
     tpl = avviso["templates"][0]["template"]
@@ -121,44 +111,3 @@ def _lotto(cig, link, campi, valori, alternative):
         "importo": valori[importi[0]["nome"]][0] if importi else None,
     }
 
-
-def _valori(chiave, testo):
-    """Tutti i valori (stringa, numero, true/false) scritti dopo "chiave": nel testo."""
-    out = []
-    for m in re.finditer(r'"%s"\s*:\s*("(?:[^"\\]|\\.)*"|-?\d[\d.]*|true|false|null)' % chiave, testo):
-        v = json.loads(m.group(1))
-        if not _vuoto(v):
-            out.append(v)
-    return out
-
-
-def leggi_per_campi(testo):
-    """Ripiego se il JSON e' rotto (es. una parentesi persa ricopiandolo): ogni "cig" apre un
-    lotto, i suoi campi sono quelli che seguono fino al cig successivo; i campi dell'avviso
-    si leggono nel pezzo prima del primo "items"."""
-    tipologia = (_valori("tipologia", testo) or [None])[0]
-    campi = campi_della_tipologia(tipologia)
-    inizi = [m.start() for m in re.finditer(r'"cig"\s*:', testo)]
-    if not inizi:
-        return (_valori("idAvviso", testo) or [None])[0], tipologia, []
-    fine_testa = testo.find('"items"')
-    testa = testo[:fine_testa if fine_testa >= 0 else inizi[0]]
-    m = re.search(r'"metadata"\s*:\s*\{[^{}]*', testa)
-    alternative = (_valori("descrizione", m.group(0)) + _valori("titolo", m.group(0))) if m else []
-    link_gen = (_valori("documenti_di_gara_link", testa) or [None])[0]
-    # nella testa "descrizione" e' quella di metadata: i campi dell'avviso con lo stesso
-    # nome di un campo del lotto si leggono solo li'
-    comuni = {}
-    for c in campi:
-        if c["livello"] == "avviso":
-            ultimo = c["percorso"].split(".")[-1]
-            pezzo = m.group(0) if c["percorso"].startswith("metadata.") and m else testa
-            comuni[c["nome"]] = _valori(ultimo, pezzo)
-    lotti = []
-    for i, start in enumerate(inizi):
-        pezzo = testo[start:inizi[i + 1] if i + 1 < len(inizi) else len(testo)]
-        valori = {c["nome"]: (_valori(c["percorso"].split(".")[-1], pezzo) if c["livello"] == "lotto"
-                              else comuni[c["nome"]]) for c in campi}
-        link = (_valori("documenti_di_gara_link", pezzo) or [link_gen])[0]
-        lotti.append(_lotto((_valori("cig", pezzo) or [""])[0], link, campi, valori, alternative))
-    return (_valori("idAvviso", testo) or [None])[0], tipologia, lotti

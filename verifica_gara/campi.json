@@ -1,7 +1,7 @@
 {
 "_nota": [
   "Campi per tipologia (fonte: Matteo Parisi, 2026-11-05). percorso copiato dall'elenco originale.",
-  "nome: come si chiama il campo in esito.json e negli argomenti del ripiego web (unico per tipologia).",
+  "nome: come si chiama il campo in esito.json (unico per tipologia).",
   "tipo: come si confronta con la pagina (codice, importo, data, testo, sino, link). link e sino non si confrontano.",
   "enable: true se il campo si cerca nella pagina. Un campo attivo ma vuoto nell'avviso risulta non previsto.",
   "metadata.titolo e metadata.descrizione restano spenti: valgono comunque come alternativa all'oggetto del lotto (descrizione).",

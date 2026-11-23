@@ -1,5 +1,5 @@
 # Verifica automatica: servizio HTTP (verifica) e modello (llm, solo con il profilo "modello").
-#   solo script:  docker compose up -d                       (MODALITA=script)
+#   solo script:  docker compose up -d                       (MODALITA=script e COMPOSE_PROFILES vuoto)
 #   con modello:  docker compose --profile modello up -d     (MODALITA=modello)
 # Configurazione nel file .env (vedi .env.example).
 services:

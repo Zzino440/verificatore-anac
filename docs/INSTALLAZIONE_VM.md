@@ -28,7 +28,7 @@ Se la VM raggiunge un registry del cliente o `ghcr.io`, al posto di `docker save
    docker compose ps
    curl -s localhost:8080/actuator/health    # {"status":"UP"}
    ```
-   Solo script, senza modello: `docker compose up -d` con `MODALITA=script`.
+   Solo script, senza modello: `docker compose up -d` con `MODALITA=script` e `COMPOSE_PROFILES=` vuoto in `.env`.
 3. Rete:
    - nel Network Security Group aprire la porta `PORTA` (8080) **solo** verso la sottorete del PVL;
    - controllare che la VM raggiunga in uscita i portali delle stazioni appaltanti (ad esempio `curl -sI https://maeci.traspare.com`).

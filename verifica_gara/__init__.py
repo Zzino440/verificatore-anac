@@ -4,6 +4,7 @@
 Uso dal tool python (nella cartella di lavoro), come da prompt-di-sistema.md, un avviso per chat:
   verifica_gara.esegui("3")       numero del file in avvisi_da_verificare/ (o percorso del file)
 Da riga di comando: python -m verifica_gara <cartella o file .json>
+  con --json (un solo file): stampa l'esito in JSON; un errore esce come {"errore": ...} con exit code 1
 Ogni verifica va in esiti/AAAA-MM-GG/NNN_HH-MM-SS_<idAvviso>/esito.json,
 con esiti/AAAA-MM-GG/riepilogo.md che elenca le verifiche del giorno.
 """
@@ -21,7 +22,7 @@ from .risposta import aggiorna_riepilogo, blocco, cartella_run, esito_finale, p,
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-VERSIONE = "0.3.0"  # semver, scritta in esito.json
+VERSIONE = "0.4.0"  # semver, scritta in esito.json
 
 CARTELLA_AVVISI = "avvisi_da_verificare"
 
@@ -134,8 +135,15 @@ def _esegui(avviso):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("percorso", help="cartella con gli avvisi .json oppure un solo file .json")
+    ap.add_argument("--json", action="store_true", help="un solo avviso: stampa l'esito in JSON")
     a = ap.parse_args()
-    if os.path.isdir(a.percorso):
+    if a.json:
+        try:
+            print(json.dumps(_esegui(_trova_avviso(a.percorso)), ensure_ascii=False))
+        except SystemExit as e:
+            print(json.dumps({"errore": str(e)}, ensure_ascii=False))
+            sys.exit(1)
+    elif os.path.isdir(a.percorso):
         esegui_cartella(a.percorso)
     else:
         esegui(a.percorso)

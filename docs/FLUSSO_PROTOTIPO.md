@@ -2,7 +2,7 @@
 
 Obiettivo: verificare ogni giorno gli avvisi (100–200, solo non scaduti) senza aprire le chat di Unsloth a mano, con **un avviso per sessione del modello**.
 
-Stato: fattibile secondo il codice di Unsloth Studio installato. **Non ancora provato con chiamate reali.**
+Stato: **superato dal servizio** (`servizio/`, vedi `PIANO_MICROSERVIZIO.md` e `servizio/README.md`). Il lanciatore è diventato il servizio HTTP: riceve gli avvisi, li mette in coda e li verifica uno alla volta, con llama.cpp al posto di Unsloth Studio e il tool `verifica_avviso` al posto del tool `python`. Unsloth Studio resta per l'uso manuale e le demo. Il resto del documento descrive l'idea di partenza con Unsloth, mai provata con chiamate reali.
 
 ## Cosa offre Unsloth Studio
 
@@ -22,8 +22,8 @@ Verificato nei sorgenti di `studio/backend` della versione installata, non nella
 ## Flusso
 
 1. **Arriva la lista** degli avvisi (export Mongo: JSON o JSONL).
-2. **Divisione in file**: uno script Python (solo libreria standard, da scrivere) crea un file per avviso, `avvisi_da_verificare/NNN_<idAvviso>.json`; l'avviso si indica con il numero `NNN`.
-3. **Lanciatore** (PowerShell o bash, da scrivere):
+2. **Divisione in file**: uno script Python (solo libreria standard, da scrivere) crea un file per avviso, `avvisi_da_verificare/NNN_<idAvviso>.json`; l'avviso si indica con il numero `NNN`. *Nel servizio: non serve, l'app manda gli avvisi in `POST /api/verifiche` e il servizio salva un file per avviso in `dati/avvisi/`.*
+3. **Lanciatore** (PowerShell o bash, da scrivere). *Nel servizio: è la coda a 1 thread; il tool riceve dal servizio il percorso del file, non il numero.*
    1. carica il modello, una volta;
    2. per ogni file, **in sequenza** (un modello su CPU non regge richieste in parallelo), fa una richiesta a `/v1/chat/completions` con:
       - system: il contenuto di `../prompt-di-sistema.md`;
@@ -35,6 +35,8 @@ Verificato nei sorgenti di `studio/backend` della versione installata, non nella
 ## Tempi (stima)
 
 Partendo dai circa 2 minuti per avviso misurati in chat: 100–200 avvisi fanno circa 3–7 ore in sequenza. Vanno bene per un job che parte di notte e finisce entro le 9.
+
+Misurato con il servizio (2026-11-23, PC di sviluppo con i limiti della VM: 4 CPU, 8 GB, Ministral 3 3B): 7 avvisi in 17 s col modello, 9 s con lo script. Il modello aggiunge circa 1 s per avviso, perché genera solo la chiamata al tool; il resto è lo scaricamento delle pagine. Sulla VM vera i tempi vanno rimisurati.
 
 ## Variante: senza modello
 
@@ -51,5 +53,4 @@ Il modello non decide niente (fa una chiamata `python` e copia il blocco), quind
 
 ## Pezzi da scrivere
 
-- `dividi_avvisi.py`: dalla lista ai file `NNN_<idAvviso>.json`.
-- `lancia_verifiche.ps1` (o `.sh`): caricamento del modello, ciclo sugli avvisi, log.
+Non più necessari: `dividi_avvisi.py` e `lancia_verifiche.ps1` sono sostituiti dal servizio.

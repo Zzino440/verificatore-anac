@@ -21,7 +21,7 @@ Il prompt ha due passi: 1 verifica, 2 risposta. Regola: **un solo avviso per cha
 Moduli del pacchetto (solo libreria standard):
 | File | Compito |
 |---|---|
-| `__init__.py` | `VERSIONE`, `esegui` (un avviso, per numero o percorso), `esegui_cartella` (tutta la cartella, solo da riga di comando), `_esegui` (orchestrazione dei lotti); `main` per `python -m verifica_gara <cartella o file>` |
+| `__init__.py` | `VERSIONE`, `esegui` (un avviso, per numero o percorso), `esegui_cartella` (tutta la cartella, solo da riga di comando), `_esegui` (orchestrazione dei lotti); `main` per `python -m verifica_gara <cartella o file>`, con `--json` (un file: stampa il dizionario di `_esegui`; errori come `{"errore": ...}` con exit 1) |
 | `campi.json` | campi per tipologia (elenco di Matteo): `nome`, `percorso`, `tipo` (codice/importo/data/testo/sino/link), `enable`; `supportata` false per le tipologie senza CIG. Si modifica a mano |
 | `avviso.py` | lettura dell'avviso: tipologia, lotti, valori dei campi attivi (`risolvi` sui percorsi) |
 | `pagina.py` | scaricamento della pagina (`scarica`) e CIG che riporta (`cig_nella_pagina`) |
@@ -48,6 +48,16 @@ Output su disco:
 esiti/AAAA-MM-GG/riepilogo.md                       tabella delle verifiche del giorno
 esiti/AAAA-MM-GG/NNN_HH-MM-SS_<idAvviso>/esito.json  dettaglio: campi atteso/trovato/ok, estratti, dati della pagina
 ```
+
+## Servizio (`servizio/`)
+
+Microservizio per l'app ANAC: Java 21, Spring Boot 3.5.4, Spring AI 1.0.9, Maven wrapper. Piano e stato in `docs/PIANO_MICROSERVIZIO.md`, uso e API in `servizio/README.md`, VM in `docs/INSTALLAZIONE_VM.md`. Le regole restano nello script: il servizio lo lancia come processo (`python3 -m verifica_gara avvisi/<id>.json --json`, cartella di lavoro `DATI_DIR`, `PYTHONPATH=SCRIPT_DIR`) e legge `esito.json`.
+- API asincrona con `X-API-Key`: `POST /api/verifiche` (avviso o lista) → `202` con gli id; `GET /api/verifiche/{id}` (`in_coda`, `in_corso`, `fatto` con `esito.json`, `errore` con la causa); `GET /api/verifiche?giorno=`. Coda a 1 thread, stati in memoria.
+- Package: `api` (controller, filtro della chiave), `coda`, `esecuzione` (`Script`: processo con timeout), `modello` (`Modello`: ChatClient con un solo tool `verifica_avviso`, senza argomenti, legato al job, `returnDirect`; l'esito viene dal tool, mai dal testo; tool non chiamato → `errore`). Prompt in `servizio/src/main/resources/prompt-servizio.md`.
+- `MODALITA=script` o `modello`; tutta la configurazione da variabili d'ambiente (`.env.example`).
+- Docker: `servizio/Dockerfile` (temurin 21 JRE alpine + python3, non root), `docker-compose.yml` con `verifica` e `llm` (llama.cpp `server-b11610`, profilo `modello`, GGUF Ministral 3 3B in `modelli/`, non versionato), volume `dati`. `docker-compose.sim-azure.yml` simula la VM (4 vCPU, 8 GB).
+- Il servizio ha la sua versione nel `pom.xml`; le API e l'uscita di `--json` sono contratto pubblico come `esito.json`.
+- In locale: JDK 21 in `~/.jdks/ms-21.0.13.0.2` (non nel PATH), build con `servizio/mvnw`. Da Java `python` può risolvere al Python di MySQL Shell, che non funziona: usare `PYTHON=<python di Unsloth>` o Docker.
 
 ## Versioni (semver)
 
@@ -86,6 +96,8 @@ Per simulare una chiamata come la fa Unsloth, in una cartella dello scratchpad (
 1. copia `verifica_gara/` e `avvisi_da_verificare/`;
 2. tutta la cartella: `"<python di Unsloth>" -m verifica_gara avvisi_da_verificare`;
 3. un avviso: scrivi `studio_exec_x.py` con il codice del Passo 1 (`esegui("<numero>")`) e lancialo con `"<python di Unsloth>" -u studio_exec_x.py`.
+
+Servizio: `docker compose up -d --build` (con `.env`), poi la collection `servizio/postman/` o i `POST` dei 7 avvisi; con il modello `--profile modello`, con i limiti della VM anche `-f docker-compose.sim-azure.yml`. Gli esiti finiscono nel volume `dati`, non in `esiti/` del progetto.
 
 Controllo di sicurezza sul codice che il modello scriverà (deve restituire `None`):
 ```python

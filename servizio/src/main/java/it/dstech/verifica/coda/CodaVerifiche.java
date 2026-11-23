@@ -3,6 +3,7 @@ package it.dstech.verifica.coda;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import it.dstech.verifica.esecuzione.Script;
+import it.dstech.verifica.modello.Modello;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -26,11 +27,17 @@ public class CodaVerifiche {
     private final Map<String, Verifica> verifiche = new ConcurrentHashMap<>();
     private final ObjectMapper json;
     private final Script script;
+    private final Modello modello;
+    private final String modalita;
     private final Path avvisi;
 
-    public CodaVerifiche(ObjectMapper json, Script script, @Value("${verifica.dati-dir}") Path datiDir) throws IOException {
+    public CodaVerifiche(ObjectMapper json, Script script, Modello modello,
+                         @Value("${verifica.modalita}") String modalita,
+                         @Value("${verifica.dati-dir}") Path datiDir) throws IOException {
         this.json = json;
         this.script = script;
+        this.modello = modello;
+        this.modalita = modalita;
         this.avvisi = Files.createDirectories(datiDir.resolve("avvisi"));
     }
 
@@ -45,7 +52,8 @@ public class CodaVerifiche {
     private void esegui(Verifica v) {
         v.stato = "in_corso";
         try {
-            v.esito = script.esegui("avvisi/" + v.id + ".json");
+            String avviso = "avvisi/" + v.id + ".json";
+            v.esito = "modello".equals(modalita) ? modello.esegui(avviso) : script.esegui(avviso);
             v.stato = "fatto";
         } catch (Exception e) {
             v.errore = e.getMessage();

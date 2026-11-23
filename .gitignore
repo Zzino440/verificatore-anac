@@ -1,3 +1,6 @@
 .idea/
 esiti/
 __pycache__/
+dati/
+modelli/
+.env

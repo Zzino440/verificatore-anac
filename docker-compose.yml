@@ -1,0 +1,34 @@
+# Verifica automatica: servizio HTTP (verifica) e modello (llm, solo con il profilo "modello").
+#   solo script:  docker compose up -d                       (MODALITA=script)
+#   con modello:  docker compose --profile modello up -d     (MODALITA=modello)
+# Configurazione nel file .env (vedi .env.example).
+services:
+  verifica:
+    build:
+      context: .
+      dockerfile: servizio/Dockerfile
+    image: verifica-servizio:0.1.0
+    ports:
+      - "${PORTA:-8080}:8080"
+    environment:
+      MODALITA: ${MODALITA:-script}
+      API_KEY: ${API_KEY:?imposta API_KEY nel file .env}
+      LLM_URL: http://llm:8080
+      LLM_MODEL: ${LLM_MODEL:-ministral-3-3b}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-300s}
+      SCRIPT_TIMEOUT: ${SCRIPT_TIMEOUT:-120s}
+    volumes:
+      - dati:/dati
+    restart: unless-stopped
+
+  llm:
+    profiles: [modello]
+    image: ghcr.io/ggml-org/llama.cpp:server-b11610
+    command: -m /modelli/${LLM_GGUF:-Ministral-3-3B-Instruct-2512-Q4_K_M.gguf} --jinja -c 8192 --host 0.0.0.0 --port 8080
+    volumes:
+      - ./modelli:/modelli:ro
+    restart: unless-stopped
+
+volumes:
+  dati:

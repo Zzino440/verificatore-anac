@@ -1,0 +1,5 @@
+*
+!servizio/
+!verifica_gara/
+servizio/target/
+**/__pycache__/

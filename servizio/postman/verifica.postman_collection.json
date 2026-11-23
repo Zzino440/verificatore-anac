@@ -1,0 +1,467 @@
+{
+  "info": {
+    "name": "Verifica automatica - servizio",
+    "description": "Chiamate dell'app al servizio della verifica automatica. Impostare baseUrl e apiKey nell'environment. Le verifiche sono asincrone: dopo un POST ripetere il GET finché stato è fatto o errore.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-Key"
+      },
+      {
+        "key": "value",
+        "value": "{{apiKey}}"
+      },
+      {
+        "key": "in",
+        "value": "header"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Stato del servizio",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "description": "",
+        "url": {
+          "raw": "{{baseUrl}}/actuator/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "actuator",
+            "health"
+          ]
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "Verifica un avviso",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 202', () => pm.response.to.have.status(202));",
+              "pm.collectionVariables.set('id', pm.response.json().ids[0]);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "description": "Un avviso JSON. Risponde 202 con l'id; esito atteso: verificato.",
+        "url": {
+          "raw": "{{baseUrl}}/api/verifiche",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "verifiche"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"idAvviso\": \"test-maeci-82375\",\n  \"codiceScheda\": \"P2_17\",\n  \"tipologia\": \"BANDI\",\n  \"tipo\": \"avviso\",\n  \"attivo\": true,\n  \"templates\": [\n    {\n      \"template\": {\n        \"metadata\": {\n          \"link_eform_ted\": null,\n          \"titolo\": null,\n          \"descrizione\": \"Restauro facciate e impianti Palacio de los Marqueses de Amboage - Ambasciata d'Italia Madrid\"\n        },\n        \"sections\": [\n          {\n            \"name\": \"SEZ. A - Committente\",\n            \"fields\": {\n              \"soggetti_sa\": [\n                {\n                  \"codice_fiscale\": \"80213330584\",\n                  \"denominazione_amministrazione\": \"MINISTERO DEGLI AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE\"\n                }\n              ]\n            }\n          },\n          {\n            \"name\": \"SEZ. B - Dati Generali\",\n            \"fields\": {\n              \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/82375\",\n              \"tipo_procedura_aggiudicazione\": \"Negoziata\"\n            }\n          },\n          {\n            \"name\": \"SEZ. C - Oggetto\",\n            \"items\": [\n              {\n                \"tipo_oggetto\": \"lotto\",\n                \"cig\": \"BC515775D3\",\n                \"natura_principale\": \"Lavori\",\n                \"descrizione\": \"Obras de conservación y restauración de las fachadas y reforma de las instalaciones de electricidad, fontanería y saneamiento del Palacio de los Marqueses de Amboage - Embajada de Italia Madrid\",\n                \"valore_complessivo_stimato\": 3804145.6,\n                \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/82375\",\n                \"termine_ricezione\": \"2026-09-15T12:00:00+02:00\"\n              }\n            ]\n          }\n        ]\n      },\n      \"lingua\": \"it\"\n    }\n  ],\n  \"oscurato\": false,\n  \"stato\": \"NON_VERIFICATO\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Stato ed esito di una verifica",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const v = pm.response.json();",
+              "pm.test('stato valido', () => pm.expect(['in_coda','in_corso','fatto','errore']).to.include(v.stato));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "description": "Ripetere finché stato è fatto (esito = contenuto di esito.json) o errore (campo errore).",
+        "url": {
+          "raw": "{{baseUrl}}/api/verifiche/{{id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "verifiche",
+            "{{id}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Verifica più avvisi",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 202', () => pm.response.to.have.status(202));",
+              "const ids = pm.response.json().ids;",
+              "pm.test('2 id', () => pm.expect(ids.length).to.eql(2));",
+              "pm.collectionVariables.set('idLista', ids[0]);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "description": "Una lista di avvisi: un id per avviso, nello stesso ordine. Esiti attesi: dubbio, non_verificabile.",
+        "url": {
+          "raw": "{{baseUrl}}/api/verifiche",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "verifiche"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "[\n  {\n    \"idAvviso\": \"test-maeci-37394\",\n    \"codiceScheda\": \"P2_17\",\n    \"tipologia\": \"BANDI\",\n    \"tipo\": \"avviso\",\n    \"attivo\": true,\n    \"templates\": [\n      {\n        \"template\": {\n          \"metadata\": {\n            \"link_eform_ted\": null,\n            \"titolo\": null,\n            \"descrizione\": \"Corsi di lingua francese, inglese, spagnolo e tedesco per il personale MAECI\"\n          },\n          \"sections\": [\n            {\n              \"name\": \"SEZ. A - Committente\",\n              \"fields\": {\n                \"soggetti_sa\": [\n                  {\n                    \"codice_fiscale\": \"80213330584\",\n                    \"denominazione_amministrazione\": \"MINISTERO DEGLI AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE\"\n                  }\n                ]\n              }\n            },\n            {\n              \"name\": \"SEZ. B - Dati Generali\",\n              \"fields\": {\n                \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/37394\",\n                \"tipo_procedura_aggiudicazione\": \"Negoziata\"\n              }\n            },\n            {\n              \"name\": \"SEZ. C - Oggetto\",\n              \"items\": [\n                {\n                  \"tipo_oggetto\": \"lotto\",\n                  \"cig\": \"B6452211D6\",\n                  \"natura_principale\": \"Servizi\",\n                  \"descrizione\": \"Affidamento di corsi lingua francese per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale\",\n                  \"valore_complessivo_stimato\": 140000.0,\n                  \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/37394\",\n                  \"termine_ricezione\": \"2025-06-17T23:59:00+02:00\"\n                },\n                {\n                  \"tipo_oggetto\": \"lotto\",\n                  \"cig\": \"B6452222A9\",\n                  \"natura_principale\": \"Servizi\",\n                  \"descrizione\": \"Affidamento di corsi lingua inglese per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale\",\n                  \"valore_complessivo_stimato\": 124000.0,\n                  \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/37394\",\n                  \"termine_ricezione\": \"2025-06-17T23:59:00+02:00\"\n                },\n                {\n                  \"tipo_oggetto\": \"lotto\",\n                  \"cig\": \"B64522337C\",\n                  \"natura_principale\": \"Servizi\",\n                  \"descrizione\": \"Affidamento di corsi lingua spagnola per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale\",\n                  \"valore_complessivo_stimato\": 170000.0,\n                  \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/37394\",\n                  \"termine_ricezione\": \"2025-06-17T23:59:00+02:00\"\n                },\n                {\n                  \"tipo_oggetto\": \"lotto\",\n                  \"cig\": \"B64522444F\",\n                  \"natura_principale\": \"Servizi\",\n                  \"descrizione\": \"Affidamento di corsi lingua tedesca per il personale del Ministero degli Affari Esteri e della Cooperazione Internazionale\",\n                  \"valore_complessivo_stimato\": 59000.0,\n                  \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/37394\",\n                  \"termine_ricezione\": \"2025-06-17T23:59:00+02:00\"\n                }\n              ]\n            }\n          ]\n        },\n        \"lingua\": \"it\"\n      }\n    ],\n    \"oscurato\": false,\n    \"stato\": \"NON_VERIFICATO\"\n  },\n  {\n    \"idAvviso\": \"test-maeci-84697-link-errato\",\n    \"codiceScheda\": \"P2_17\",\n    \"tipologia\": \"BANDI\",\n    \"tipo\": \"avviso\",\n    \"attivo\": true,\n    \"templates\": [\n      {\n        \"template\": {\n          \"metadata\": {\n            \"link_eform_ted\": null,\n            \"titolo\": null,\n            \"descrizione\": \"Ristrutturazione nuova sede Consolato Generale d'Italia a Francoforte\"\n          },\n          \"sections\": [\n            {\n              \"name\": \"SEZ. A - Committente\",\n              \"fields\": {\n                \"soggetti_sa\": [\n                  {\n                    \"codice_fiscale\": \"80213330584\",\n                    \"denominazione_amministrazione\": \"MINISTERO DEGLI AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE\"\n                  }\n                ]\n              }\n            },\n            {\n              \"name\": \"SEZ. B - Dati Generali\",\n              \"fields\": {\n                \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/82375\",\n                \"tipo_procedura_aggiudicazione\": \"Negoziata\"\n              }\n            },\n            {\n              \"name\": \"SEZ. C - Oggetto\",\n              \"items\": [\n                {\n                  \"tipo_oggetto\": \"lotto\",\n                  \"cig\": \"BCB8DDBB65\",\n                  \"natura_principale\": \"Lavori\",\n                  \"descrizione\": \"Lavori di ristrutturazione e adeguamento della nuova sede del Consolato Generale sita in Eschersheimer Landstraße 23\",\n                  \"valore_complessivo_stimato\": 5227740.17,\n                  \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/82375\",\n                  \"termine_ricezione\": \"2026-11-06T18:00:00+01:00\"\n                }\n              ]\n            }\n          ]\n        },\n        \"lingua\": \"it\"\n      }\n    ],\n    \"oscurato\": false,\n    \"stato\": \"NON_VERIFICATO\"\n  }\n]",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Stato del primo della lista",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "description": "",
+        "url": {
+          "raw": "{{baseUrl}}/api/verifiche/{{idLista}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "verifiche",
+            "{{idLista}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Verifiche del giorno",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.environment.get('giorno')) pm.collectionVariables.set('giorno', new Date().toISOString().slice(0, 10));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('lista', () => pm.expect(pm.response.json()).to.be.an('array'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "description": "giorno AAAA-MM-GG; se non è impostato nell'environment vale oggi.",
+        "url": {
+          "raw": "{{baseUrl}}/api/verifiche?giorno={{giorno}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "verifiche"
+          ],
+          "query": [
+            {
+              "key": "giorno",
+              "value": "{{giorno}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Avviso con tipologia sconosciuta",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 202', () => pm.response.to.have.status(202));",
+              "pm.collectionVariables.set('idErrore', pm.response.json().ids[0]);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "description": "Accettato (202), poi la verifica finisce in stato errore con la causa.",
+        "url": {
+          "raw": "{{baseUrl}}/api/verifiche",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "verifiche"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"idAvviso\": \"test-maeci-82375\",\n  \"codiceScheda\": \"P2_17\",\n  \"tipologia\": \"XYZ\",\n  \"tipo\": \"avviso\",\n  \"attivo\": true,\n  \"templates\": [\n    {\n      \"template\": {\n        \"metadata\": {\n          \"link_eform_ted\": null,\n          \"titolo\": null,\n          \"descrizione\": \"Restauro facciate e impianti Palacio de los Marqueses de Amboage - Ambasciata d'Italia Madrid\"\n        },\n        \"sections\": [\n          {\n            \"name\": \"SEZ. A - Committente\",\n            \"fields\": {\n              \"soggetti_sa\": [\n                {\n                  \"codice_fiscale\": \"80213330584\",\n                  \"denominazione_amministrazione\": \"MINISTERO DEGLI AFFARI ESTERI E COOPERAZIONE INTERNAZIONALE\"\n                }\n              ]\n            }\n          },\n          {\n            \"name\": \"SEZ. B - Dati Generali\",\n            \"fields\": {\n              \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/82375\",\n              \"tipo_procedura_aggiudicazione\": \"Negoziata\"\n            }\n          },\n          {\n            \"name\": \"SEZ. C - Oggetto\",\n            \"items\": [\n              {\n                \"tipo_oggetto\": \"lotto\",\n                \"cig\": \"BC515775D3\",\n                \"natura_principale\": \"Lavori\",\n                \"descrizione\": \"Obras de conservación y restauración de las fachadas y reforma de las instalaciones de electricidad, fontanería y saneamiento del Palacio de los Marqueses de Amboage - Embajada de Italia Madrid\",\n                \"valore_complessivo_stimato\": 3804145.6,\n                \"documenti_di_gara_link\": \"https://maeci.traspare.com/announcements/82375\",\n                \"termine_ricezione\": \"2026-09-15T12:00:00+02:00\"\n              }\n            ]\n          }\n        ]\n      },\n      \"lingua\": \"it\"\n    }\n  ],\n  \"oscurato\": false,\n  \"stato\": \"NON_VERIFICATO\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Stato della verifica in errore",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "description": "Dopo qualche secondo: stato errore, errore = tipologia non prevista.",
+        "url": {
+          "raw": "{{baseUrl}}/api/verifiche/{{idErrore}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "verifiche",
+            "{{idErrore}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Senza chiave: 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "description": "",
+        "url": {
+          "raw": "{{baseUrl}}/api/verifiche",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "verifiche"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "Corpo non valido: 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "description": "",
+        "url": {
+          "raw": "{{baseUrl}}/api/verifiche",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "verifiche"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "\"testo\"",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Id inesistente: 404",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "description": "",
+        "url": {
+          "raw": "{{baseUrl}}/api/verifiche/inesistente",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "verifiche",
+            "inesistente"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "id",
+      "value": ""
+    },
+    {
+      "key": "idLista",
+      "value": ""
+    },
+    {
+      "key": "idErrore",
+      "value": ""
+    },
+    {
+      "key": "giorno",
+      "value": ""
+    }
+  ]
+}

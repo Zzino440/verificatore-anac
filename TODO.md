@@ -7,7 +7,7 @@ Fonte: call "SAC2 - ANAC - test AI" del 2026-11-05 ([pagina Notion](https://app.
 - [ ] Scaricare il modello extractor proposto da Giuseppe (circa 876 MB, solo HTML, solo CPU), provarlo su Docker senza GPU e misurarne i tempi. Verificare se è lo stesso modello visto il giorno prima (circa 1,3 GB).
 
 ## Da chiedere
-- [ ] **ANAC**: 3–4 esempi di verifiche manuali (cosa controllano, cosa ignorano). Servono per decidere quali campi accendere in `verifica_gara/campi.json`.
+- [ ] **ANAC**: 3–4 esempi di verifiche manuali (cosa controllano, cosa ignorano). Servono per decidere quali campi accendere in `src/main/python/verifica_gara/campi.json`.
 - [ ] **ANAC**: quale link va controllato tra `documenti_di_gara_link`, `avviso_pubblicato_committente_link` e i link ad accesso limitato. Oggi si apre solo `documenti_di_gara_link` (prima quello del lotto, poi quello della sezione B).
 - [ ] **Matteo**: le liste di MODIFICHE_CONTRATTUALI e INDAGINI_DI_MERCATO_SOTTO_SOGLIA sono identiche. `valore_modifica` e `motivazione_modifica` non hanno senso per un'indagine di mercato: probabile errore di copia.
 - [ ] **Matteo**: le schede con i campi obbligatori per template.

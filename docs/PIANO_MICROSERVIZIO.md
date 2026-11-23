@@ -2,7 +2,7 @@
 
 Obiettivo: l'app ANAC (BE Spring) si collega a un solo servizio HTTP, che verifica gli avvisi e restituisce gli esiti. L'app non deve sapere niente di cartelle, prompt, modello o script. Il servizio si avvia con `docker compose up`, sia in locale sia su una VM Azure del cliente (solo CPU).
 
-Stato (2026-11-23): **fasi 1–6 e 8 fatte e provate in locale; fase 7 da eseguire sulla VM** (procedura in `INSTALLAZIONE_VM.md`). Uso del servizio in `servizio/README.md`.
+Stato (2026-11-23): **fasi 1–6 e 8 fatte e provate in locale; fase 7 da eseguire sulla VM** (procedura in `INSTALLAZIONE_VM.md`). Uso del servizio in `README.md`. Dopo le fasi il repo è stato riordinato: il progetto Maven sta nella radice e lo script, con quanto serve a Unsloth, in `src/main/python/`; i percorsi qui sotto sono aggiornati.
 
 ## 1. In breve
 
@@ -10,7 +10,7 @@ Stato (2026-11-23): **fasi 1–6 e 8 fatte e provate in locale; fase 7 da esegui
 - **Cosa fa il servizio**: salva l'avviso, lo mette in coda, fa girare la verifica (con o senza modello) e conserva l'esito.
 - **Decisioni prese**:
   - le regole restano nello script Python `verifica_gara/`: il servizio Spring lo lancia come processo, nessun porting in Java;
-  - il servizio sta in questo repo, nella cartella `servizio/`, così script e servizio si versionano insieme.
+  - il servizio sta in questo repo, come progetto Maven nella radice (prima nella cartella `servizio/`), con lo script in `src/main/python/`, così script e servizio si versionano insieme.
 - **Decisione confermata nelle prove**: in produzione il motore del modello è **llama.cpp server** al posto di Unsloth Studio, e il modello vede un **tool stretto** al posto del tool `python` generico. Motivi:
   - è più leggero e gira senza interfaccia;
   - il modello non può eseguire codice arbitrario.
@@ -75,26 +75,26 @@ App ANAC ──HTTP──> verifica (Spring Boot)
 
 Ogni fase ha un risultato verificabile. ✅ = fatta e provata.
 
-1. ✅ **Script: uscita JSON.** Aggiungere a `main()` in `verifica_gara/__init__.py` l'opzione `--json`, che stampa il dizionario restituito da `_esegui` al posto del blocco per l'utente.
+1. ✅ **Script: uscita JSON.** Aggiungere a `main()` in `src/main/python/verifica_gara/__init__.py` l'opzione `--json`, che stampa il dizionario restituito da `_esegui` al posto del blocco per l'utente.
    - Anche gli errori escono come JSON, con un campo errore e un exit code diverso da 0: oggi sono `SystemExit` di `_trova_avviso`, "nessun lotto" e tipologia ignota in `leggi_avviso`. Il lato Java non deve leggere testo.
    - Opzionale: `--esiti <cartella>`. *Non fatto: il servizio lancia lo script con cartella di lavoro `DATI_DIR`.*
    - Versione minor (0.4.0).
    - *Verifica*: `python -m verifica_gara avvisi_da_verificare/02_madrid_base.json --json` → JSON con l'esito atteso.
-2. ✅ **Scheletro Spring** in `servizio/`, con quattro package:
+2. ✅ **Scheletro Spring** (allora in `servizio/`, oggi nella radice), con quattro package:
    - `api`: controller e DTO;
    - `coda`: executor a 1 thread, stati in memoria;
    - `esecuzione`: `ProcessBuilder` con timeout e cartella di lavoro `DATI_DIR`;
    - `modello`: client del modello e tool.
 3. ✅ **Modalità script.** `POST` → file in `dati/avvisi/` → coda → script → stato `fatto` con l'esito. *Da qui l'app può già integrarsi.*
 4. ✅ **Modalità modello.**
-   - Un prompt corto e nuovo (`servizio/src/main/resources/prompt-servizio.md`): "chiama `verifica_avviso`, una sola volta" (niente riassunto: il tool ha `returnDirect`).
+   - Un prompt corto e nuovo (`src/main/resources/prompt-servizio.md`): "chiama `verifica_avviso`, una sola volta" (niente riassunto: il tool ha `returnDirect`).
    - Client su `LLM_URL`; il tool esegue lo stesso processo della fase 3.
    - Nessun ripiego silenzioso: se il modello non chiama il tool entro il timeout, lo stato diventa `errore` con la causa.
 5. ✅ **Docker.**
-   - `servizio/Dockerfile` multi-stage, che copia `verifica_gara/` e il jar. Utente non root, `TZ=Europe/Rome`, immagine di 291 MB.
+   - `Dockerfile` multi-stage, che copia `src/main/python/verifica_gara/` e il jar. Utente non root, `TZ=Europe/Rome`, immagine di 291 MB.
    - `docker-compose.yml` nella radice con i servizi `verifica` e `llm`, il volume Docker `dati` (un volume con nome invece di `./dati`, perché un bind mount creato da Docker su Linux appartiene a root e l'utente del container non ci scriverebbe) e `./modelli`.
    - ~~Profilo `solo-script`, che non avvia `llm`~~: i profili di compose possono solo aggiungere servizi, non toglierli. Al suo posto `llm` sta nel profilo `modello`: `docker compose up` avvia solo lo script, `--profile modello` (o `COMPOSE_PROFILES=modello` in `.env`) anche il modello.
-6. ✅ **Prova locale.** I 7 avvisi di esempio, con gli esiti attesi in `avvisi_da_verificare/README.md`:
+6. ✅ **Prova locale.** I 7 avvisi di esempio, con gli esiti attesi in `src/main/python/avvisi_da_verificare/README.md`:
    - prima con il profilo `solo-script`;
    - poi con il modello: esiti identici, tempi annotati.
    - *Fatto il 2026-11-23: 7/7 esiti come da README in tutti e tre i casi. Script 9 s; modello 15 s; modello con `docker-compose.sim-azure.yml` (4 CPU condivise, `llm` 5 GB, `verifica` 1,5 GB) 17 s, RAM `llm` 2,3 GB e `verifica` 0,2 GB.*
@@ -104,7 +104,7 @@ Ogni fase ha un risultato verificabile. ✅ = fatta e provata.
    - Copiare il GGUF in `modelli/` e avviare con `docker compose up -d`.
    - Aprire la porta del servizio solo verso la sottorete del PVL.
    - Misurare tempi e RAM.
-8. ✅ **Consegna all'app.** Link OpenAPI, esempio `curl`, `.env.example` (in `servizio/README.md`), più la collection Postman in `servizio/postman/`.
+8. ✅ **Consegna all'app.** Link OpenAPI, esempio `curl`, `.env.example` (in `README.md`), più la collection Postman in `postman/`.
 
 ## 6. Da verificare
 

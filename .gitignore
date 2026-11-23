@@ -4,3 +4,4 @@ __pycache__/
 dati/
 modelli/
 .env
+target/

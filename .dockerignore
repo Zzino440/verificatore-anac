@@ -1,5 +1,8 @@
 *
-!servizio/
-!verifica_gara/
-servizio/target/
+!.mvn/
+!mvnw
+!pom.xml
+!src/main/java/
+!src/main/resources/
+!src/main/python/verifica_gara/
 **/__pycache__/

@@ -2,7 +2,7 @@
 
 Obiettivo: verificare ogni giorno gli avvisi (100–200, solo non scaduti) senza aprire le chat di Unsloth a mano, con **un avviso per sessione del modello**.
 
-Stato: **superato dal servizio** (`servizio/`, vedi `PIANO_MICROSERVIZIO.md` e `servizio/README.md`). Il lanciatore è diventato il servizio HTTP: riceve gli avvisi, li mette in coda e li verifica uno alla volta, con llama.cpp al posto di Unsloth Studio e il tool `verifica_avviso` al posto del tool `python`. Unsloth Studio resta per l'uso manuale e le demo. Il resto del documento descrive l'idea di partenza con Unsloth, mai provata con chiamate reali.
+Stato: **superato dal servizio** (nella radice del repo, vedi `PIANO_MICROSERVIZIO.md` e `README.md`). Il lanciatore è diventato il servizio HTTP: riceve gli avvisi, li mette in coda e li verifica uno alla volta, con llama.cpp al posto di Unsloth Studio e il tool `verifica_avviso` al posto del tool `python`. Unsloth Studio resta per l'uso manuale e le demo. Il resto del documento descrive l'idea di partenza con Unsloth, mai provata con chiamate reali.
 
 ## Cosa offre Unsloth Studio
 
@@ -10,7 +10,7 @@ Verificato nei sorgenti di `studio/backend` della versione installata, non nella
 
 - **API compatibile con OpenAI**: `POST /v1/chat/completions` (`routes/inference.py`). Si mandano i messaggi system (il prompt) e user ("verifica il 03"), più alcuni campi propri di Unsloth:
   - `enable_tools: true` ed `enabled_tools: ["python"]`: il tool gira **sul server**, come nella chat (una chiamata `python`), tutto in una sola richiesta;
-  - `session_id: "project-<id progetto>"`: le chiamate `python` girano nella **cartella del progetto**, dove stanno `../verifica_gara` e `avvisi_da_verificare/` (`_project_workdir_for` in `core/inference/tools.py`).
+  - `session_id: "project-<id progetto>"`: le chiamate `python` girano nella **cartella del progetto**, dove stanno `verifica_gara/` e `avvisi_da_verificare/` (oggi `src/main/python/`) (`_project_workdir_for` in `core/inference/tools.py`).
 - **Permessi**:
   - senza `permission_mode` esplicito, una richiesta non in streaming non chiede conferme ed esegue i tool;
   - il sandbox resta attivo (`sandbox_level: "high"`), lo stesso delle chat;
@@ -26,7 +26,7 @@ Verificato nei sorgenti di `studio/backend` della versione installata, non nella
 3. **Lanciatore** (PowerShell o bash, da scrivere). *Nel servizio: è la coda a 1 thread; il tool riceve dal servizio il percorso del file, non il numero.*
    1. carica il modello, una volta;
    2. per ogni file, **in sequenza** (un modello su CPU non regge richieste in parallelo), fa una richiesta a `/v1/chat/completions` con:
-      - system: il contenuto di `../prompt-di-sistema.md`;
+      - system: il contenuto di `src/main/python/prompt-di-sistema.md`;
       - user: `verifica il NNN`;
       - `enable_tools`, `enabled_tools`, `session_id` del progetto;
    3. salva la risposta testuale in un log; serve solo per controllo.
@@ -44,9 +44,9 @@ Il modello non decide niente (fa una chiamata `python` e copia il blocco), quind
 
 ## Da verificare con il prototipo
 
-- [ ] Una chiamata reale a `/v1/chat/completions` con `enable_tools` e `session_id` del progetto: il modello chiama `verifica_gara` e la verifica finisce in `../esiti`.
+- [ ] Una chiamata reale a `/v1/chat/completions` con `enable_tools` e `session_id` del progetto: il modello chiama `verifica_gara` e la verifica finisce in `esiti/` della cartella del progetto.
 - [ ] La versione di Unsloth nel Docker ha gli stessi campi dell'API.
-- [ ] Via API viene aggiunto anche l'`../AGENTS.md` del progetto, come in chat?
+- [ ] Via API viene aggiunto anche l'`AGENTS.md` del progetto, come in chat?
 - [ ] Dentro il sandbox, chiamato via API, lo script riesce a scaricare le pagine (rete).
 - [ ] Come creare l'API key e trovare l'id del progetto in un container senza interfaccia.
 - [ ] Tempi reali per avviso via API, con e senza ripiego.

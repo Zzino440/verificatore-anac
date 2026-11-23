@@ -6,7 +6,7 @@ services:
   verifica:
     build:
       context: .
-      dockerfile: servizio/Dockerfile
+      dockerfile: Dockerfile
     image: verifica-servizio:0.1.0
     ports:
       - "${PORTA:-8080}:8080"

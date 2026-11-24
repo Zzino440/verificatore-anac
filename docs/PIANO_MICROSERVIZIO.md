@@ -118,6 +118,8 @@ Ogni fase ha un risultato verificabile. ✅ = fatta e provata.
 
 ## 7. Domande per Matteo (lato app)
 
+> Risposte proposte in `PIANO_INTEGRAZIONE_CRUSCOTTO.md`: chiama pvl-verifier (job giornaliero o su una giornata scelta), con polling degli id; gli esiti li salva pvl-backend in una collection dedicata.
+
 - Un avviso per chiamata, oppure "verifica la giornata X" e il servizio prende da sé gli avvisi dalle API PVL (fase successiva)?
 - L'app controlla lo stato a intervalli (polling) o preferisce una callback a fine verifica?
 - L'esito lo salva l'app sul DB (consigliato), con `esiti/` usato solo come log?
